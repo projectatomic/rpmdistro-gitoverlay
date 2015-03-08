@@ -27,7 +27,6 @@ make %{?_smp_mflags}
 make install DESTDIR=%{buildroot} INSTALL="install -p -c"
 
 %files
-%doc COPYING README.md src/py/config.ini.sample
+%doc COPYING README.md
 %{_bindir}/%{name}
 %{_libdir}/%{name}/
-%{_datadir}/%{name}/

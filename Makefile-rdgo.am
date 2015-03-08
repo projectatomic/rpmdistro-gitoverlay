@@ -30,7 +30,7 @@ rdgo_privlibdir=$(libdir)/$(PACKAGE)
 bin_SCRIPTS += rpmdistro-gitoverlay \
 	$(NULL)
 
-pyrdgolibpydir = $(pkglibdir)/py
+pyrdgolibpydir = $(pkglibdir)/rdgo
 pyrdgolibpy_PYTHON = $(wildcard rdgo/*.py)
 
 TESTS += t/pylint.sh
