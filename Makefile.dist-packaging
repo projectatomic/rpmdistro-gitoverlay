@@ -13,7 +13,7 @@ dist-snapshot:
 	echo "PACKAGE=$(PACKAGE)"; \
 	TARFILE_TMP=$(PKG_VER).tar.tmp; \
 	echo "Archiving $(PACKAGE) at $(GITREV)"; \
-	(cd ..; git archive --format=tar --prefix=$(PKG_VER)/ $(GITREV)) > $${TARFILE_TMP}; \
+	(cd $(srcdir); git archive --format=tar --prefix=$(PKG_VER)/ $(GITREV)) > $${TARFILE_TMP}; \
 	(cd $$(git rev-parse --show-toplevel); git submodule status) | while read line; do \
 	  rev=$$(echo $$line | cut -f 1 -d ' '); path=$$(echo $$line | cut -f 2 -d ' '); \
 	  echo "Archiving $${path} at $${rev}"; \

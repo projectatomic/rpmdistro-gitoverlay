@@ -1,6 +1,6 @@
 Summary: Overlay repository manager
 Name: rpmdistro-gitoverlay
-Version: 0.25.5.g74fe405
+Version: 98e6388
 Release: 1%{?dist}
 #VCS: https://github.com/cgwalters/rpmdistro-gitoverlay
 Source0: %{name}-%{version}.tar.xz
