@@ -137,7 +137,7 @@ DIST_COMMON = $(srcdir)/Makefile-decls.am $(srcdir)/Makefile-rdgo.am \
 	$(top_srcdir)/configure $(am__configure_deps) \
 	$(srcdir)/config.h.in $(pyrdgolibpy_PYTHON) \
 	$(top_srcdir)/build-aux/py-compile \
-	$(top_srcdir)/build-aux/test-driver build-aux/compile \
+	$(top_srcdir)/build-aux/test-driver COPYING build-aux/compile \
 	build-aux/config.guess build-aux/config.sub \
 	build-aux/install-sh build-aux/missing build-aux/py-compile \
 	build-aux/ltmain.sh $(top_srcdir)/build-aux/compile \
@@ -635,7 +635,7 @@ gir_DATA = $(INTROSPECTION_GIRS)
 typelibdir = $(pkglibdir)/girepository-1.0
 typelib_DATA = $(gir_DATA:.gir=.typelib)
 gsettings_SCHEMAS = 
-TESTS = t/pylint.sh
+TESTS = pylint.sh
 # git.mk
 GITIGNOREFILES = 
 
@@ -650,7 +650,7 @@ substitutions = \
 	$(NULL)
 
 rdgo_privlibdir = $(libdir)/$(PACKAGE)
-pyrdgolibpydir = $(pkglibdir)/py
+pyrdgolibpydir = $(pkglibdir)/rdgo
 pyrdgolibpy_PYTHON = $(wildcard rdgo/*.py)
 all: $(BUILT_SOURCES) config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
@@ -1347,9 +1347,9 @@ recheck: all
 	        am__force_recheck=am--force-recheck \
 	        TEST_LOGS="$$log_list"; \
 	exit $$?
-t/pylint.sh.log: t/pylint.sh
-	@p='t/pylint.sh'; \
-	b='t/pylint.sh'; \
+pylint.sh.log: pylint.sh
+	@p='pylint.sh'; \
+	b='pylint.sh'; \
 	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
@@ -1720,7 +1720,7 @@ rpmdistro-gitoverlay: rdgo/main.in Makefile
 	sed $(substitutions) $< > $@.tmp && mv $@.tmp $@
 
 pylint:
-	env PYLINT_FULL=true srcdir=$(srcdir) $(srcdir)/t/pylint.sh 
+	env PYLINT_FULL=true srcdir=$(srcdir) $(srcdir)/pylint.sh 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

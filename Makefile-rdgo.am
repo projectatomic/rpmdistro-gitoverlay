@@ -33,4 +33,4 @@ bin_SCRIPTS += rpmdistro-gitoverlay \
 pyrdgolibpydir = $(pkglibdir)/rdgo
 pyrdgolibpy_PYTHON = $(wildcard rdgo/*.py)
 
-TESTS += t/pylint.sh
+TESTS += pylint.sh

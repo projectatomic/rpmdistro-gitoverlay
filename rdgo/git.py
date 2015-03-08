@@ -21,8 +21,12 @@ import os
 import re
 import collections
 import shutil
+import subprocess
+import tempfile
 
-from gi.repository import GLib, GSystem
+from gi.repository import GLib, Gio, GSystem
+
+from .utils import log, fatal, run_sync
 
 def path_with_suffix(path, suffix):
     return os.path.dirname(path) + '/' + os.path.basename(path) + suffix
@@ -109,20 +113,18 @@ class GitMirror(object):
         tmp_mirror = os.path.dirname(mirrordir) + '/' + os.path.basename(mirrordir) + '.tmp'
         did_update = False
         
-        current_time = GLib.DateTime.new_now_utc()
-
         rmrf(tmp_mirror)
         if not os.path.isdir(mirrordir):
             run_sync(['git', 'clone', '--mirror', url, tmp_mirror])
             run_sync(['git', 'config', 'gc.auto', '0'], cwd=tmp_mirror)
             os.rename(tmp_mirror, mirrordir)
         elif fetch:
-            run_sync(['git', 'fetch'], cwd=mirror)
+            run_sync(['git', 'fetch'], cwd=mirrordir)
         
         for module in self._list_submodules(mirrordir, url, branch_or_tag):
             log("Processing {0}".format(module))
             sub_url = module.url
             if sub_url.startswith('../'):
                 sub_url = make_absolute_url(url, sub_url)
-            self._ensure_mirror(sub_url, module.checksum,
-                                fetch=fetch, fetch_continue=fetch_continue)
+            self.mirror(sub_url, module.checksum,
+                        fetch=fetch, fetch_continue=fetch_continue)

@@ -22,13 +22,14 @@ import copy
 
 from .utils import fatal
 from .task import Task
+from .git import GitMirror
 
 class TaskResolve(Task):
     def _expand_one_component(self, component):
         component.src = component.get('src', component.get('dist-git'))
         if component.src is None:
             fatal("Component {0} is missing 'src' or 'dist-git'")
-        component['dist-git'] = component.get('dist-git', component_src)
+        component['dist-git'] = component.get('dist-git', component.src)
         if not component.tag:
             component.branch = component.get('branch', 'master')
 

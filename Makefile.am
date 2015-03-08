@@ -35,4 +35,4 @@ typelib_DATA = $(gir_DATA:.gir=.typelib)
 include Makefile-rdgo.am
 
 pylint:
-	env PYLINT_FULL=true srcdir=$(srcdir) $(srcdir)/t/pylint.sh 
+	env PYLINT_FULL=true srcdir=$(srcdir) $(srcdir)/pylint.sh 
