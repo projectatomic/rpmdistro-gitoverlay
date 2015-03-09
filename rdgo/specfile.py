@@ -1,25 +1,37 @@
+#!/usr/bin/env python
+#
+# This code was imported from rdo:
+#   https://github.com/redhat-openstack/rdopkg
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the
+# Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.
+
 import codecs
 import os
 import re
 import time
 
-RPM_AVAILABLE = False
-try:
-    import rpm
-    RPM_AVAILABLE = True
-except ImportError:
-    pass
-
-import exception
-
+import rpm
 
 def spec_fn(spec_dir='.'):
     specs = [f for f in os.listdir(spec_dir) \
              if os.path.isfile(f) and f.endswith('.spec')]
     if not specs:
-        raise exception.SpecFileNotFound()
+        raise Exception("No spec file found")
     if len(specs) != 1:
-        raise exception.MultipleSpecFilesFound()
+        raise Exception("Multiple spec files found")
     return specs[0]
 
 
@@ -76,26 +88,24 @@ class Spec(object):
     @property
     def rpmspec(self):
         if not self._rpmspec:
-            if not RPM_AVAILABLE:
-                raise exception.RpmModuleNotAvailable()
             rpm.addMacro('_sourcedir',
                          os.path.dirname(os.path.realpath(self.fn)))
             try:
                 self._rpmspec = rpm.spec(self.fn)
             except ValueError, e:
-                raise exception.SpecFileParseError(spec_fn=self.fn,
-                                                   error=e.args[0])
+                raise Exception("Error parsing spec: {0}".format(e))
         return self._rpmspec
 
     def expand_macro(self, macro):
         rs = self.rpmspec
         return rpm.expandMacro(macro)
 
-    def get_tag(self, tag, expand_macros=False):
+    def get_tag(self, tag, expand_macros=False, allow_empty=False):
         m = re.search('^%s:\s+(\S.*)$' % tag, self.txt, re.M)
         if not m:
-            raise exception.SpecFileParseError(spec_fn=self.fn,
-                                               error="%s tag not found" % tag)
+            if allow_empty:
+                return None
+            raise Exception("Error parsing spec: tag not found: {0}".format(tag))
         tag = m.group(1).rstrip()
         if expand_macros and has_macros(tag):
             # don't parse using rpm unless required
@@ -138,9 +148,7 @@ class Spec(object):
                 r'\g<1>#\n# patches_base=%s\n#\n\n' % base,
                 self.txt, count=1, flags=re.M)
         if n != 1:
-            raise exception.SpecFileParseError(
-                spec_fn=self.fn,
-                error="Unable to create new #patches_base entry.")
+            raise Exception("Unable to create new #patches_base entry.")
 
     def set_patches_base(self, base):
         v, _ = self.get_patches_base()
@@ -152,9 +160,7 @@ class Spec(object):
                     r'(#\s*patches_base\s*=\s*)[\w.+]*',
                     r'\g<1>%s' % base, self.txt, flags=re.M)
                 if n != 1:
-                    raise exception.SpecFileParseError(
-                        spec_fn=self.fn,
-                        error="Unable to set new #patches_base")
+                    raise Exception("Unable to set new #patches_base")
         else:
             if v is not None:
                 self._txt = re.sub(
@@ -201,12 +207,12 @@ class Spec(object):
         if sm:
             si = sm.start()
             if bi < si:
-                raise exception.BuildArchSanityCheckFailed()
+                raise Exception("BuildArchSanityCheckFailed")
         pm = re.search('^Patch\d+:', self.txt, flags=re.M)
         if pm:
             pi = pm.start()
             if bi < pi:
-                raise exception.BuildArchSanityCheckFailed()
+                raise Exception("BuildArchSanityCheckFailed")
 
     def sanity_check(self):
         if self.patches_apply_method() == 'git-am':
@@ -239,18 +245,14 @@ class Spec(object):
                 self.RE_AFTER_SOURCES,
                 r'\g<1>%s\n' % ps, self.txt, count=1)
         if n != 1:
-            raise exception.SpecFileParseError(
-                spec_fn=self.fn,
-                error="Failed to append PatchXXXX: lines")
+            raise Exception("SpecFileParseError: Failed to append PatchXXXX: lines")
         ## %patchXXX -p1 lines after "%setup" if needed
         if apply_method == 'rpm':
             self._txt, n = re.subn(
                 r'((?:^|\n)%setup[^\n]*\n)\s*',
                 r'\g<1>\n%s\n' % pa, self.txt)
             if n == 0:
-                raise exception.SpecFileParseError(
-                    spec_fn=self.fn,
-                    error="Failed to append %patchXXXX lines after %setup")
+                raise Exception("SpecFileParseError: Failed to append %patchXXXX lines after %setup")
 
     def get_release_parts(self):
         release = self.get_tag('Release')
@@ -286,11 +288,9 @@ class Spec(object):
         changes_str = "\n".join(map(lambda x: "- %s" % x, changes)) + "\n"
         date = time.strftime('%a %b %d %Y')
         version = self.get_tag('Version', expand_macros=True)
-        try:
-            epoch = self.get_tag('Epoch')
+        epoch = self.get_tag('Epoch', allow_empty=True)
+        if epoch is not None:
             version = '%s:%s' % (epoch, version)
-        except exception.SpecFileParseError:
-            pass
         release = self.get_tag('Release', expand_macros=True)
         # Assume release ends with %{?dist}
         release, _, _ = release.rpartition('.')
@@ -303,9 +303,7 @@ class Spec(object):
         if not self.txt:
             # no changes
             return
-        if not self.fn:
-            raise exception.InvalidAction(
-                "Can't save .spec file without its file name specified.")
+        assert self.fn
         f = codecs.open(self.fn, 'w', encoding='utf-8')
         f.write(self.txt)
         f.close()
@@ -315,13 +313,11 @@ class Spec(object):
         # arcane rpm constants, now in python!
         sources = filter(lambda x: x[2] == 1, self.rpmspec.sources)
         if len(sources) == 0:
-            error = "No sources found"
-            raise exception.SpecFileParseError(spec_fn=self.fn, error=error)
+            raise Exception("SpecFileParseError: No sources found")
         # OpenStack packages seem to always use only one tarball
         sources0 = filter(lambda x: x[1] == 0, sources)
         if len(sources0) == 0:
-            error = "Source0 not found"
-            raise exception.SpecFileParseError(spec_fn=self.fn, error=error)
+            raise Exception("SpecFileParseError: Source0 not found")
         source_url = sources0[0][0]
         return [source_url]
 
