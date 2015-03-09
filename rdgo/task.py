@@ -17,5 +17,16 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
+import os
+
 class Task(object):
-    pass
+    def __init__(self):
+        self.workdir = os.getcwd()
+        self._snapshot = None
+
+    def get_snapshot(self):
+        if self._snapshot is None:
+            with open(self.workdir + '/snapshot.json') as f:
+                self._snapshot = json.load(f)
+        return self._snapshot
+        

@@ -1,6 +1,6 @@
 # An example overlay file
 
-dist-git:
+distgit:
   - prefix: fedorapkgs
   
 roots:
@@ -9,19 +9,30 @@ roots:
 
 components:
   - src: gnome:ostree
-    # (automatic) dist-git: ostree
+    distgit: { src: ostree } # automatic
 
-  - dist-git: rpm-ostree
+
+  # distgit can be primary
+  - distgit: { name: ostree }
     # inherit src: from VCS in spec file
     branch: 2015-stable  # upstream git branch
-    # distgit-branch: f22
+
+
+  # Demonstrate separate distgit name
+  - src: github:docker/docker
+    distgit:
+      name: docker-io
+
 
   - src: github:docker/docker
-    # Pin to a specific commit upstream
-    freeze: f3096a65c046f28a060947fd4502990195e7835
-    # Pin to a specific dist-git commit
-    distgit-freeze: 20556a63338d04f76aa3ec0d77c95072b75e1d29
+    freeze: 20556a63338d04f76aa3ec0d77c95072b75e1d29
+    distgit:
+      name: docker-io
+      freeze: da39a3ee5e6b4b0d3255bfef95601890afd80709
+
 
   - src: github:docker/docker
     # Automatically search <topdir>/patches/docker/ and apply in order
     patches: true
+    distgit:
+      name: docker-io

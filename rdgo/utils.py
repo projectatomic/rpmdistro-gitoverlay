@@ -21,6 +21,8 @@ import sys
 import subprocess
 import os
 
+from gi.repository import GLib, Gio, GSystem
+
 def fatal(msg):
     print >>sys.stderr, msg
     sys.exit(1)
@@ -35,3 +37,10 @@ def run_sync(args, **kwargs):
     """Wraps subprocess.check_call(), logging the command line too."""
     log("Running: %s" % (subprocess.list2cmdline(args), ))
     subprocess.check_call(args, **kwargs)
+
+def rmrf(path):
+    GSystem.shutil_rm_rf(Gio.File.new_for_path(path), None)
+
+def ensuredir(path, with_parents=False):
+    GSystem.file_ensure_directory(Gio.File.new_for_path(path), with_parents, None)
+

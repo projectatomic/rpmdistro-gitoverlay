@@ -1,12 +1,12 @@
 gitconfig: 
   - name: github
-    url: git://github.com/
+    url: https://github.com/
 
   - name: fd
     url: git://anongit.freedesktop.org/git/
 
   - name: gnome
-    url: git://git.gnome.org/
+    url: https://git.gnome.org/
 
   - name: kernel
     url: git://git.kernel.org/pub/scm/linux/kernel/git/
