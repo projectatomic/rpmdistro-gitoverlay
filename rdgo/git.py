@@ -150,3 +150,22 @@ class GitMirror(object):
                 sub_url = make_absolute_url(url, sub_url)
             self.mirror(sub_url, module.checksum,
                         fetch=fetch, fetch_continue=fetch_continue)
+        return subprocess.check_output(['git', 'rev-parse', branch_or_tag], cwd=mirrordir)
+
+    def checkout(self, url, branch_or_tag, dest):
+        mirrordir = self._get_mirrordir(url)
+        run_sync(['git', 'clone', '-s', '--origin', 'localmirror', mirrordir, dest])
+        run_sync(['git', 'checkout', '-q', branch_or_tag], cwd=dest)
+        return dest
+
+    def describe(self, url, branch_or_tag):
+        mirrordir = self._get_mirrordir(url)
+        description = subprocess.check_output(['git', 'describe', '--long', '--abbrev=40', '--always', branch_or_tag],
+                                              cwd=mirrordir).strip()
+        if len(description) == 40:
+            return [None, description]
+        else:
+            rgdash = description.rfind('-g')
+            assert rgdash >= 0
+            return (description[0:rgdash], description[rgdash+1:])
+        

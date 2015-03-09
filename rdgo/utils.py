@@ -44,3 +44,7 @@ def rmrf(path):
 def ensuredir(path, with_parents=False):
     GSystem.file_ensure_directory(Gio.File.new_for_path(path), with_parents, None)
 
+def ensure_clean_dir(path):
+    rmrf(path)
+    ensuredir(path)
+
