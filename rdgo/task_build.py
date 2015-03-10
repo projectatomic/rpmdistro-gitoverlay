@@ -29,6 +29,7 @@ from .utils import log, fatal, rmrf, ensure_clean_dir, run_sync
 from .task import Task
 from . import specfile 
 from .git import GitMirror
+from .mockchain import main as mockchain_main
 
 def require_key(conf, key):
     try:
@@ -41,7 +42,7 @@ class TaskBuild(Task):
     def _tar_czf_with_prefix(self, dirpath, prefix, output):
         dn = os.path.dirname(dirpath)
         bn = os.path.basename(dirpath)
-        run_sync(['tar', '-czf', output, '--transform', 's,^' + bn + ',' + prefix + ',', bn],
+        run_sync(['tar', '--exclude-vcs', '-czf', output, '--transform', 's,^' + bn + ',' + prefix + ',', bn],
                  cwd=dn)
 
     def _rpm_verrel(self, component, upstream_tag, upstream_rev, distgit_desc):
@@ -148,7 +149,8 @@ class TaskBuild(Task):
         self.newrpms = self.rpmdir.prepare()
             
         mc_argv.extend(['-l', self.newrpms])
-        run_sync(mc_argv)
+        log("Performing mockchain: {0}".format(mc_argv))
+        mockchain_main(mc_argv)
 
         self.rpmdir.commit()
 
