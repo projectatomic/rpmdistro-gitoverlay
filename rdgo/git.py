@@ -102,6 +102,16 @@ class GitMirror(object):
     def _git_revparse(self, gitdir, branch):
         return subprocess.check_output(['git', 'rev-parse', branch], cwd=gitdir).strip()
 
+    def _strip_file_url(self, url):
+        """Remove the file:// prefix, which causes git to fall back to a
+        slower fetch process.
+
+        """
+        if url.startswith('file://'):
+            return url[len('file://'):]
+        else:
+            return url
+
     def _list_submodules_in(self, checkout, uri, rev='HEAD'):
         self._run('checkout', '-q', '-f', rev, cwd=checkout)
         proc = subprocess.Popen(['git', 'submodule', 'status'], cwd=checkout,
@@ -128,8 +138,7 @@ class GitMirror(object):
         current_rev = self._git_revparse(gitdir, branch)
         tmpdir = tempfile.mkdtemp('', 'tmp-gitmirror', self.tmpdir)
         tmp_clone =  tmpdir + '/checkout'
-        try:
-            self._run('clone', '-q', '--no-checkout', gitdir, tmp_clone)
+        try:            self._run('clone', '-q', '--no-checkout', gitdir, tmp_clone)
             return self._list_submodules_in(tmp_clone, uri, rev=branch)
         finally:
             rmrf(tmpdir)
@@ -139,10 +148,11 @@ class GitMirror(object):
         mirrordir = self._get_mirrordir(url)
         tmp_mirror = os.path.dirname(mirrordir) + '/' + os.path.basename(mirrordir) + '.tmp'
         did_update = False
+
         
         rmrf(tmp_mirror)
         if not os.path.isdir(mirrordir):
-            self._run('clone', '--mirror', url, tmp_mirror)
+            self._run('clone', '--mirror', self._strip_file_url(url), tmp_mirror)
             self._run('config', 'gc.auto', '0', cwd=tmp_mirror)
             os.rename(tmp_mirror, mirrordir)
         elif fetch:
