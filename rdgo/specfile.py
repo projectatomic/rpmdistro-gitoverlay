@@ -19,6 +19,7 @@
 # Boston, MA 02111-1307, USA.
 
 import codecs
+import StringIO
 import os
 import re
 import time
@@ -27,11 +28,11 @@ import rpm
 
 def spec_fn(spec_dir='.'):
     specs = [f for f in os.listdir(spec_dir) \
-             if os.path.isfile(f) and f.endswith('.spec')]
+             if os.path.isfile(spec_dir + '/' + f) and f.endswith('.spec')]
     if not specs:
-        raise Exception("No spec file found")
+        raise Exception("No spec file found in {0}".format(spec_dir))
     if len(specs) != 1:
-        raise Exception("Multiple spec files found")
+        raise Exception("Multiple spec files found in {0}".format(spec_dir))
     return specs[0]
 
 
@@ -224,6 +225,32 @@ class Spec(object):
         if '\n%autosetup' in self.txt:
             return 'autosetup'
         return 'rpm'
+
+    def set_setup_dirname(self, srcname):
+        newtxt = StringIO.StringIO()
+        ws_re = re.compile(r'\s+')
+        matched = False
+        for line in StringIO.StringIO(self._txt):
+            if not (line.startswith('%setup') or
+                    line.startswith('%autosetup')):
+                newtxt.write(line)
+                continue
+            parts = ws_re.split(line)
+            newsetup = []
+            skip = False
+            for part in parts:
+                if skip:
+                    skip = False
+                    continue
+                newsetup.append(part.strip())
+                if part == '-n':
+                    newsetup.append(srcname)
+                    skip = True
+            matched = True
+            newtxt.write(' '.join(newsetup) + '\n')
+        if not matched:
+            raise Exception("Failed to find %setup or %autosetup")
+        self._txt = newtxt.getvalue()
 
     def set_new_patches(self, fns):
         self.wipe_patches()

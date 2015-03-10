@@ -31,12 +31,13 @@ __builtin__.__dict__['DATADIR'] = datadir
 path = os.path.join('@pkglibdir@')
 sys.path.insert(0, path)
 
-from rdgo import task_resolve
+from rdgo import task_resolve, task_srpms
 
 def usage(iserr):
     stream = sys.stderr if iserr else sys.stdout
     stream.write("""Builtins:
   resolve - Perform a git mirror
+  srpms - Generate srpms
 """)
     sys.exit(1 if iserr else 0)
 
@@ -46,6 +47,8 @@ def main():
     cmd = sys.argv.pop(1)
     if cmd == 'resolve':
         task_resolve.TaskResolve().run()
+    elif cmd == 'srpms':
+        task_srpms.TaskSRPMs().run()
     else:
         sys.stderr.write("""Unknown argument: %s\n""" % (cmd, ))
         usage(True)

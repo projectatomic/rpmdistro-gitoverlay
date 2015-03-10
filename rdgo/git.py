@@ -102,32 +102,37 @@ class GitMirror(object):
     def _git_revparse(self, gitdir, branch):
         return subprocess.check_output(['git', 'rev-parse', branch], cwd=gitdir).strip()
 
+    def _list_submodules_in(self, checkout, uri, rev='HEAD'):
+        self._run('checkout', '-q', '-f', rev, cwd=checkout)
+        proc = subprocess.Popen(['git', 'submodule', 'status'], cwd=checkout,
+                                stdout=subprocess.PIPE, env=self._gitenv())
+        submodules = []
+        for line in proc.stdout:
+            line = line.strip()
+            if line == '':
+                continue
+            line = line[1:]
+            parts = line.split(' ', 2)
+            if len(parts) < 2:
+                continue
+            sub_checksum, sub_name = parts[0:2]
+            sub_url = subprocess.check_output(['git', 'config', '-f', '.gitmodules',
+                                               'submodule.{0}.url'.format(sub_name)],
+                                              cwd=checkout).strip()
+            if sub_url.startswith('../'):
+                sub_url = make_absolute_url(uri, sub_url)
+            submodules.append(GitSubmodule(sub_checksum, sub_name, sub_url))
+        return submodules
+
     def _list_submodules(self, gitdir, uri, branch):
         current_rev = self._git_revparse(gitdir, branch)
         tmpdir = tempfile.mkdtemp('', 'tmp-gitmirror', self.tmpdir)
         tmp_clone =  tmpdir + '/checkout'
         try:
             self._run('clone', '-q', '--no-checkout', gitdir, tmp_clone)
-            self._run('checkout', '-q', '-f', current_rev, cwd=tmp_clone)
-            proc = subprocess.Popen(['git', 'submodule', 'status'], cwd=tmp_clone,
-                                    stdout=subprocess.PIPE, env=self._gitenv())
-            submodules = []
-            for line in proc.stdout:
-                line = line.strip()
-                if line == '':
-                    continue
-                line = line[1:]
-                parts = line.split(' ', 2)
-                if len(parts) < 2:
-                    continue
-                sub_checksum, sub_name = parts[0:2]
-                sub_url = subprocess.check_output(['git', 'config', '-f', '.gitmodules',
-                                                   'submodule.{0}.url'.format(sub_name)],
-                                                  cwd=tmp_clone).strip()
-                submodules.append(GitSubmodule(sub_checksum, sub_name, sub_url))
+            return self._list_submodules_in(tmp_clone, uri, rev=branch)
         finally:
             rmrf(tmpdir)
-        return submodules
 
     def mirror(self, url, branch_or_tag,
                fetch=False, fetch_continue=False):
@@ -145,17 +150,25 @@ class GitMirror(object):
         
         for module in self._list_submodules(mirrordir, url, branch_or_tag):
             log("Processing {0}".format(module))
-            sub_url = module.url
-            if sub_url.startswith('../'):
-                sub_url = make_absolute_url(url, sub_url)
-            self.mirror(sub_url, module.checksum,
+            self.mirror(module.url, module.checksum,
                         fetch=fetch, fetch_continue=fetch_continue)
-        return subprocess.check_output(['git', 'rev-parse', branch_or_tag], cwd=mirrordir)
+        return subprocess.check_output(['git', 'rev-parse', branch_or_tag], cwd=mirrordir).strip()
+
+    def _process_checkout_submodules(self, checkout, url):
+        for module in self._list_submodules_in(checkout, url):
+            sub_mirrordir = self._get_mirrordir(module.url)
+            config_key = 'submodule.{0}.url'.format(module.name)
+            run_sync(['git', 'config', '-f', '.gitmodules',
+                      config_key, 'file://' + sub_mirrordir],
+                     cwd=checkout)
+            run_sync(['git', 'submodule', 'update', '--init', module.name], cwd=checkout)
+            self._process_checkout_submodules(checkout + '/' + module.name, module.url)
 
     def checkout(self, url, branch_or_tag, dest):
         mirrordir = self._get_mirrordir(url)
         run_sync(['git', 'clone', '-s', '--origin', 'localmirror', mirrordir, dest])
         run_sync(['git', 'checkout', '-q', branch_or_tag], cwd=dest)
+        self._process_checkout_submodules(dest, url)
         return dest
 
     def describe(self, url, branch_or_tag):
@@ -167,5 +180,5 @@ class GitMirror(object):
         else:
             rgdash = description.rfind('-g')
             assert rgdash >= 0
-            return (description[0:rgdash], description[rgdash+1:])
+            return (description[0:rgdash], description[rgdash+2:])
         
