@@ -23,14 +23,13 @@
 # so they are available as build deps to next pkg being built
 from __future__ import print_function
 try:
-    from six.moves.urllib_parse import urlsplit
+    from six.moves.urllib_parse import urlsplit  # pylint: disable=no-name-in-module
 except ImportError:
     from urlparse import urlsplit
 import sys
 import subprocess
 import os
 import optparse
-import requests
 import tempfile
 import shutil
 import time
@@ -317,24 +316,6 @@ def main(args):
                 failed.append(pkg)
                 continue
 
-            elif pkg.startswith('http://') or pkg.startswith('https://') or pkg.startswith('ftp://'):
-                url = pkg
-                try:
-                    log(opts.logfile, 'Fetching %s' % url)
-                    r = requests.get(url)
-                    if r.status_code == requests.codes.ok:
-                        fn = urlsplit(r.url).path.rsplit('/', 1)[1]
-                        pkg = download_dir + '/' + fn
-                        fd = open(pkg, 'wb')
-                        for chunk in r.iter_content(4096):
-                            fd.write(chunk)
-                        fd.close()
-                except Exception as e:
-                    log(opts.logfile, 'Error Downloading %s: %s' % (url, str(e)))
-                    failed.append(url)
-                    continue
-                else:
-                    downloaded_pkgs[pkg] = url
             log(opts.logfile, "Start build: %s" % pkg)
             ret, cmd, out, err = do_build(opts, config_opts['chroot_name'], pkg)
             log(opts.logfile, "End build: %s" % pkg)
