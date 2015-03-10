@@ -238,6 +238,7 @@ class Spec(object):
             parts = ws_re.split(line)
             newsetup = []
             skip = False
+            found_dashn = False
             for part in parts:
                 if skip:
                     skip = False
@@ -246,6 +247,9 @@ class Spec(object):
                 if part == '-n':
                     newsetup.append(srcname)
                     skip = True
+                    found_dashn = True
+            if not found_dashn:
+                newsetup.extend(['-n', srcname])
             matched = True
             newtxt.write(' '.join(newsetup) + '\n')
         if not matched:
