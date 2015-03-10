@@ -343,6 +343,7 @@ def main(args):
                         msg = downloaded_pkgs[pkg]
                     log(opts.logfile, msg)
                 try_again = False
+                return_code = 2
         else:
             try_again = False
             if failed:
