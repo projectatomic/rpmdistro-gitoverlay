@@ -59,6 +59,10 @@ class SwappedDirectory(object):
         ensure_clean_dir(newpath)
         return newpath
 
+    def abandon(self):
+        newpath = self._newpath()
+        rmrf(newpath)
+
     def commit(self):
         newpath = self._newpath()
         tmplink = newpath + '/' + '__tmplink'
