@@ -71,8 +71,8 @@ def parse_args(args):
             help="add these repo baseurls to the chroot's yum config")
     parser.add_option('--recurse', default=False, action='store_true',
             help="if more than one pkg and it fails to build, try to build the rest and come back to it")
-    parser.add_option('--log', default=None, dest='logfile',
-            help="log to the file named by this option, defaults to not logging")
+    parser.add_option('--logdir', default=None, dest='logdir',
+            help="Add log files to this directory")
     parser.add_option('--tmp_prefix', default=None, dest='tmp_prefix',
             help="tmp dir prefix - will default to username-pid if not specified")
     parser.add_option('-m', '--mock-option', default=[], action='append',
@@ -89,7 +89,7 @@ def parse_args(args):
         sys.exit(1)
 
 
-    if len(args) < 3:
+    if len(args) < 2:
         print("You must specifiy at least 1 package to build")
         sys.exit(1)
 
@@ -239,25 +239,17 @@ def main(args):
     pid = os.getpid()
     opts.uniqueext = '%s-%s' % (opts.tmp_prefix, pid)
 
-
-    # create a tempdir for our local info
-    if opts.localrepo:
-        local_tmp_dir = os.path.abspath(opts.localrepo)
-        if not os.path.exists(local_tmp_dir):
-            os.makedirs(local_tmp_dir)
-    else:
-        pre = 'mock-chain-%s-' % opts.uniqueext
-        local_tmp_dir = tempfile.mkdtemp(prefix=pre, dir='/var/tmp')
-
-    os.chmod(local_tmp_dir, 0o755)
-
-    if opts.logfile:
-        opts.logfile = os.path.join(local_tmp_dir, opts.logfile)
+    if opts.logdir:
+        opts.logfile = os.path.join(opts.logdir, 'mockchain.log')
         if os.path.exists(opts.logfile):
             os.unlink(opts.logfile)
+        log(opts.logfile, "starting logfile: %s" % opts.logfile)
+    else:
+        opts.logfile = None
 
-    log(opts.logfile, "starting logfile: %s" % opts.logfile)
-    opts.local_repo_dir = os.path.normpath(local_tmp_dir + '/results/' + config_opts['chroot_name'] + '/')
+    local_tmp_dir = tempfile.mkdtemp('mockchain')
+
+    opts.local_repo_dir = opts.localrepo
 
     if not os.path.exists(opts.local_repo_dir):
         os.makedirs(opts.local_repo_dir, mode=0o755)
