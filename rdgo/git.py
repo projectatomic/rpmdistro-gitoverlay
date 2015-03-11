@@ -138,7 +138,8 @@ class GitMirror(object):
         current_rev = self._git_revparse(gitdir, branch)
         tmpdir = tempfile.mkdtemp('', 'tmp-gitmirror', self.tmpdir)
         tmp_clone =  tmpdir + '/checkout'
-        try:            self._run('clone', '-q', '--no-checkout', gitdir, tmp_clone)
+        try:
+            self._run('clone', '-q', '--no-checkout', gitdir, tmp_clone)
             return self._list_submodules_in(tmp_clone, uri, rev=branch)
         finally:
             rmrf(tmpdir)
