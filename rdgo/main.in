@@ -37,7 +37,7 @@ def usage(iserr):
     stream = sys.stderr if iserr else sys.stdout
     stream.write("""Builtins:
   resolve - Perform a git mirror
-  srpms - Generate srpms
+  build - Build the packages
 """)
     sys.exit(1 if iserr else 0)
 
