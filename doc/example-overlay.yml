@@ -30,7 +30,6 @@ components:
       name: docker-io
       freeze: da39a3ee5e6b4b0d3255bfef95601890afd80709
 
-
   - src: github:docker/docker
     # Automatically search <topdir>/patches/docker/ and apply in order
     patches: true

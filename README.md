@@ -30,6 +30,71 @@ For example, if you delete a source from the overlay, all RPMs
 generated from that source will also drop out of the generated
 repository.  Whereas COPR is a stateful system.
 
+## An example overlay file
+
+    # An example overlay file
+    
+    aliases: 
+      - name: github
+        url: git://github.com/
+    
+      - name: gnome
+        url: git://git.gnome.org/
+    
+      - name: fedorapkgs
+        url: git://pkgs.fedoraproject.org/
+    
+    distgit:
+      prefix: fedorapkgs
+      branch: master
+      
+    root:
+      mock: fedora-rawhide-x86_64
+    
+    cache:
+      buildserial: 0
+    
+    components:
+      - src: gnome:ostree
+    
+      - src: github:hughsie/libhif
+        freeze: 07fb582c331773ea8ee60513d8ee74f592a7eab9
+        distgit: 
+          name: libhif
+          patches: drop
+    
+      - src: github:projectatomic/rpm-ostree
+        distgit:
+          name: rpm-ostree
+          patches: drop
+
+## Running
+
+Create a working directory where the primary data `src/` and `rpms/`
+will be stored, and copy your `overlay.yml` in there (or symlink it to
+a git checkout):
+
+    mkdir -p /srv/build
+    ln -s ~walters/src/fedora-atomic/overlay.yml .
+
+Now, we perform a `resolve`: This will generate a `src/` directory
+which is a git mirror of all inputs (recursively mirroring
+submodules), and take a snapshot of exact commits into `snapshot.json`
+
+    rpmdistro-gitoverlay resolve --fetch-all
+    ls -al snapshot.json
+
+Now, let's do a build:
+
+    rpmdistro-gitoverlay build
+
+This will generate `rpms/`, which is a yum repository.  Note however
+the system is idempotent, if we run again:
+
+    rpmdistro-gitoverlay build
+
+Nothing should happen aside from a `createrepo` invocation.
+    
 ### Other tools
 
 The code in this project originated from
