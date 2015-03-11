@@ -170,6 +170,7 @@ def do_build(opts, cfg, pkg):
         os.unlink(fail_file)
 
     mockcmd = ['/usr/bin/mock',
+               '--nocheck'    # Tests should run after builds
                '--yum',
                '--configdir', opts.config_path,
                '--resultdir', resdir,
