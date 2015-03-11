@@ -59,6 +59,16 @@ class TaskResolve(Task):
         dictval[key] = value
         return value
 
+    def _one_of_keys(self, dictval, first, *args):
+        v = dictval.get(first)
+        if v is not None:
+            return v
+        for k in args:
+            v = dictval.get(k)
+            if v is not None:
+                return v
+        return None
+
     def _expand_component(self, component):
         # 'src' and 'distgit' mappings
         if component.get('src') is None:
@@ -93,12 +103,12 @@ class TaskResolve(Task):
         expanded = copy.deepcopy(self._overlay)
         for component in expanded['components']:
             self._expand_component(component)
-            revision = mirror.mirror(component['src'], component.get('branch', component.get('tag')),
-                                     fetch=True)
+            ref = self._one_of_keys(component, 'freeze', 'branch', 'tag')
+            revision = mirror.mirror(component['src'], ref, fetch=True)
             component['revision'] = revision
             distgit = component['distgit']
-            revision = mirror.mirror(distgit['src'], distgit.get('branch', distgit.get('tag')),
-                                     fetch=True)
+            ref = self._one_of_keys(distgit, 'freeze', 'branch', 'tag')
+            revision = mirror.mirror(distgit['src'], ref, fetch=True)
             distgit['revision'] = revision
 
         del expanded['aliases']
