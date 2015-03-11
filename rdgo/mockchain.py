@@ -292,7 +292,6 @@ def main(args):
         sys.exit(1)
 
 
-    download_dir = tempfile.mkdtemp()
     downloaded_pkgs = {}
     built_pkgs = []
     try_again = True
@@ -348,9 +347,6 @@ def main(args):
             try_again = False
             if failed:
                 return_code = 2
-
-    # cleaning up our download dir
-    shutil.rmtree(download_dir, ignore_errors=True)
 
     log(opts.logfile, "Results out to: %s" % opts.local_repo_dir)
     log(opts.logfile, "Pkgs built: %s" % len(built_pkgs))
