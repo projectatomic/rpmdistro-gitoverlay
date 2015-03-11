@@ -21,6 +21,7 @@ import os
 import json
 import StringIO
 import subprocess
+import hashlib
 import yaml
 import tempfile
 import copy
@@ -141,6 +142,13 @@ class TaskBuild(Task):
             fatal("Too many files found in {0}: {1}".format(path, results))
         return path + '/' + results[0]
 
+    def _json_hash(self, dictval):
+        """Kind of a hack, but it works."""
+        serialized = json.dumps(dictval, sort_keys=True)
+        h = hashlib.sha256()
+        h.update(serialized)
+        return h.hexdigest()
+
     def run(self):
         snapshot = self.get_snapshot()
 
@@ -158,21 +166,36 @@ class TaskBuild(Task):
         mc_argv = ['mockchain', '--recurse', '-r', root_mock,
                    '-l', self.newrpms]
 
+        oldcache_path = self.rpmdir.path + '/buildstate.json'
+        oldcache = {}
+        if os.path.exists(oldcache_path):
+            with open(oldcache_path) as f:
+                oldcache = json.load(f)
+        newcache = {}
+        newcache_path = self.newrpms + '/buildstate.json'
+
         need_build = False
         for component in snapshot['components']:
+            component_hash = self._json_hash(component)
+            distgit_name = component['distgit']['name']
+            cachedstate = oldcache.get(distgit_name)
+            if cachedstate is not None:
+                if cachedstate['hashv0'] == component_hash:
+                    cached_dirname = cachedstate['dirname']
+                    log("Reusing cached build: {0}".format(cached_dirname))
+                    oldrpmdir = self.rpmdir.path + '/' + cached_dirname
+                    newrpmdir = self.newrpms + '/' + cached_dirname
+                    subprocess.check_call(['cp', '-al', oldrpmdir, newrpmdir])
+                    continue
             srpm = self._ensure_srpm(component)
             assert srpm.endswith('.src.rpm')
             srpm_version = srpm[:-len('.src.rpm')]
-            oldrpmdir = self.rpmdir.path + '/' + srpm_version
-            oldsuccess = oldrpmdir + '/success'
-            if os.path.exists(oldsuccess):
-                newrpmdir = self.newrpms + '/' + srpm_version
-                log("Reusing cached build: {0}".format(oldrpmdir))
-                subprocess.check_call(['cp', '-al', oldrpmdir, newrpmdir])
-            else:
-                log("Cache miss for: {0}".format(oldsuccess))
-                mc_argv.append(self.srpmdir + '/' + srpm)
-                need_build = True
+            newcache[distgit_name] = {'hashv0': component_hash,
+                                      'dirname': srpm_version}
+            mc_argv.append(self.srpmdir + '/' + srpm)
+            need_build = True
+            with open(newcache_path, 'w') as f:
+                json.dump(newcache, f, sort_keys=True)
 
         if need_build:
             log("Performing mockchain: {0}".format(mc_argv))
