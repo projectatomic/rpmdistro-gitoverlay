@@ -18,6 +18,7 @@
 # Boston, MA 02111-1307, USA.
 
 import os
+import argparse
 import json
 import StringIO
 import subprocess
@@ -149,7 +150,10 @@ class TaskBuild(Task):
         h.update(serialized)
         return h.hexdigest()
 
-    def run(self):
+    def run(self, argv):
+        parser = argparse.ArgumentParser(description="Build RPMs")
+        opts = parser.parse_args(argv)
+
         snapshot = self.get_snapshot()
 
         root = require_key(snapshot, 'root')

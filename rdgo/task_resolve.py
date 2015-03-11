@@ -19,6 +19,7 @@
 
 import os
 import json
+import argparse
 import yaml
 import copy
 
@@ -91,7 +92,14 @@ class TaskResolve(Task):
         if distgit.get('tag') is None:
             distgit['branch'] = distgit.get('branch', 'master')
 
-    def run(self):
+    def run(self, argv):
+        parser = argparse.ArgumentParser(description="Create snapshot.json")
+        parser.add_argument('--fetch-all', action='store_true', help='Fetch all git repositories')
+        parser.add_argument('-f', '--fetch', action='append', default=[],
+                            help='Fetch the specified git repository')
+
+        opts = parser.parse_args(argv)
+
         ovlpath = self.workdir + '/overlay.yml'
         with open(ovlpath) as f:
             self._overlay = yaml.load(f)
@@ -104,11 +112,13 @@ class TaskResolve(Task):
         for component in expanded['components']:
             self._expand_component(component)
             ref = self._one_of_keys(component, 'freeze', 'branch', 'tag')
-            revision = mirror.mirror(component['src'], ref, fetch=True)
+            do_fetch = opts.fetch_all or (component['name'] in opts.fetch)
+            revision = mirror.mirror(component['src'], ref, fetch=do_fetch)
             component['revision'] = revision
             distgit = component['distgit']
             ref = self._one_of_keys(distgit, 'freeze', 'branch', 'tag')
-            revision = mirror.mirror(distgit['src'], ref, fetch=True)
+            do_fetch = opts.fetch_all or (distgit['name'] in opts.fetch)
+            revision = mirror.mirror(distgit['src'], ref, fetch=do_fetch)
             distgit['revision'] = revision
 
         del expanded['aliases']

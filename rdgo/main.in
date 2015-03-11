@@ -46,9 +46,9 @@ def main():
         usage(False)
     cmd = sys.argv.pop(1)
     if cmd == 'resolve':
-        task_resolve.TaskResolve().run()
+        task_resolve.TaskResolve().run(sys.argv[1:])
     elif cmd == 'build':
-        task_build.TaskBuild().run()
+        task_build.TaskBuild().run(sys.argv[1:])
     else:
         sys.stderr.write("""Unknown argument: %s\n""" % (cmd, ))
         usage(True)
