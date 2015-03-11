@@ -186,6 +186,7 @@ class TaskBuild(Task):
                     oldrpmdir = self.rpmdir.path + '/' + cached_dirname
                     newrpmdir = self.newrpms + '/' + cached_dirname
                     subprocess.check_call(['cp', '-al', oldrpmdir, newrpmdir])
+                    newcache[distgit_name] = cachedstate
                     continue
             srpm = self._ensure_srpm(component)
             assert srpm.endswith('.src.rpm')
@@ -194,8 +195,6 @@ class TaskBuild(Task):
                                       'dirname': srpm_version}
             mc_argv.append(self.srpmdir + '/' + srpm)
             need_build = True
-            with open(newcache_path, 'w') as f:
-                json.dump(newcache, f, sort_keys=True)
 
         if need_build:
             log("Performing mockchain: {0}".format(mc_argv))
@@ -205,6 +204,8 @@ class TaskBuild(Task):
         else:
             ensuredir(self.newrpms + '/repodata')
             run_sync(['createrepo_c', 'repodata'], cwd=self.newrpms)            
+        with open(newcache_path, 'w') as f:
+            json.dump(newcache, f, sort_keys=True)
 
         self.rpmdir.commit()
 
