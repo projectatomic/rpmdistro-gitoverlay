@@ -116,7 +116,8 @@ class Spec(object):
     def set_tag(self, tag, value):
         self._txt, n = re.subn(r'^(%s:\s+).*$' % re.escape(tag),
                                r'\g<1>%s' % value, self.txt, flags=re.M)
-        return n > 0
+        if n == 0:
+            self._txt = tag + ':' + value + '\n' + self._txt
 
     def get_patches_base(self, expand_macros=False):
         """Return a tuple (version, number_of_commits) that are parsed
