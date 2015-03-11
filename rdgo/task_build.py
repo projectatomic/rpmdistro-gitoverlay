@@ -122,7 +122,7 @@ class TaskBuild(Task):
 
         name = "{0}-{1}-{2}.src.rpm".format(distgit['name'],
                                             rpm_version, rpm_release)
-        tmpdir = tempfile.mkdtemp('', 'rdgo-srpms')
+        tmpdir = tempfile.mkdtemp('', 'rdgo-srpms', self.tmpdir)
         try:
             upstream_co = tmpdir + '/' + component['name']
             self.mirror.checkout(upstream_src, upstream_rev, upstream_co)
@@ -158,6 +158,9 @@ class TaskBuild(Task):
 
         root = require_key(snapshot, 'root')
         root_mock = require_key(root, 'mock')
+
+        self.tmpdir = self.workdir + '/tmp'
+        ensuredir(self.tmpdir)
 
         self.mirror = GitMirror(self.workdir + '/src')
         self.rpmdir = SwappedDirectory(self.workdir + '/rpms')
