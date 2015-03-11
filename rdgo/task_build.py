@@ -210,7 +210,7 @@ class TaskBuild(Task):
                 fatal("mockchain exited with code {0}".format(rc))
         else:
             ensuredir(self.newrpms + '/repodata')
-            run_sync(['createrepo_c', 'repodata'], cwd=self.newrpms)            
+            run_sync(['createrepo_c', '-o', 'repodata', '.'], cwd=self.newrpms)            
         with open(newcache_path, 'w') as f:
             json.dump(newcache, f, sort_keys=True)
 
