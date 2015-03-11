@@ -99,7 +99,7 @@ class TaskBuild(Task):
         elif len(srpms) > 1:
             fatal("Multiple .src.rpm found in {0}".format(distgit_co))
         srpm = srpms[0]
-        os.link(distgit_co + '/' + srpm, self.newsrpms + '/' + target)
+        os.link(distgit_co + '/' + srpm, self.srpmdir + '/' + target)
 
     def _ensure_srpm(self, component):
         upstream_src = component['src']
@@ -120,23 +120,17 @@ class TaskBuild(Task):
 
         name = "{0}-{1}-{2}.src.rpm".format(distgit['name'],
                                             rpm_version, rpm_release)
-        oldpath = self.srpmdir.path + '/' + name
-        log("Looking for: {0}".format(oldpath))
-        if os.path.exists(oldpath):
-            log("Reusing cached SRPM: " + name)
-            os.link(oldpath, self.newsrpms + '/' + name)
-        else:
-            tmpdir = tempfile.mkdtemp('', 'rdgo-srpms')
-            try:
-                upstream_co = tmpdir + '/' + component['name']
-                self.mirror.checkout(upstream_src, upstream_rev, upstream_co)
-                distgit_co = tmpdir + '/' + 'distgit-' + distgit['name']
-                self.mirror.checkout(distgit_src, distgit_rev, distgit_co)
+        tmpdir = tempfile.mkdtemp('', 'rdgo-srpms')
+        try:
+            upstream_co = tmpdir + '/' + component['name']
+            self.mirror.checkout(upstream_src, upstream_rev, upstream_co)
+            distgit_co = tmpdir + '/' + 'distgit-' + distgit['name']
+            self.mirror.checkout(distgit_src, distgit_rev, distgit_co)
 
-                self._generate_srpm(component, upstream_tag, upstream_rev, upstream_co, distgit_desc, distgit_co, name)
-            finally:
-                if not 'PRESERVE_TEMP' in os.environ:
-                    rmrf(tmpdir)
+            self._generate_srpm(component, upstream_tag, upstream_rev, upstream_co, distgit_desc, distgit_co, name)
+        finally:
+            if not 'PRESERVE_TEMP' in os.environ:
+                rmrf(tmpdir)
         return name
 
     def _assert_get_one_child(self, path):
@@ -154,11 +148,12 @@ class TaskBuild(Task):
         root_mock = require_key(root, 'mock')
 
         self.mirror = GitMirror(self.workdir + '/src')
-        self.srpmdir = SwappedDirectory(self.workdir + '/srpms')
         self.rpmdir = SwappedDirectory(self.workdir + '/rpms')
 
-        self.newsrpms = self.srpmdir.prepare()
         self.newrpms = self.rpmdir.prepare()
+
+        self.srpmdir = self.newrpms + '/srpms'
+        ensuredir(self.srpmdir)
 
         mc_argv = ['mockchain', '--recurse', '-r', root_mock,
                    '-l', self.newrpms]
@@ -176,19 +171,15 @@ class TaskBuild(Task):
                 subprocess.check_call(['cp', '-al', oldrpmdir, newrpmdir])
             else:
                 log("Cache miss for: {0}".format(oldsuccess))
-                mc_argv.append(self.srpmdir.path + '/' + srpm)
+                mc_argv.append(self.srpmdir + '/' + srpm)
                 need_build = True
 
         if need_build:
-            self.srpmdir.commit() 
-
             log("Performing mockchain: {0}".format(mc_argv))
             rc = mockchain_main(mc_argv) 
             if rc != 0:
                 fatal("mockchain exited with code {0}".format(rc))
         else:
-            self.srpmdir.abandon()
-
             ensuredir(self.newrpms + '/repodata')
             run_sync(['createrepo_c', 'repodata'], cwd=self.newrpms)            
 
