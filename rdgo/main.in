@@ -33,26 +33,27 @@ sys.path.insert(0, path)
 
 from rdgo import task_resolve, task_build
 
+commands = {
+    "build" : [lambda: task_build.TaskBuild(), "Build the packages"],
+    "resolve" : [lambda: task_resolve.TaskResolve(), "Perform a git mirror"],
+}
+
 def usage(iserr):
     stream = sys.stderr if iserr else sys.stdout
-    stream.write("""Builtins:
-  resolve - Perform a git mirror
-  build - Build the packages
-""")
+    stream.write("Builtins:\n")
+    for i, j in commands.items():
+        stream.write("%s: %s\n" % (i, j[1]))
     sys.exit(1 if iserr else 0)
 
 def main():
-    if len(sys.argv) <= 1:
+    if len(sys.argv) <= 1 or sys.argv[1] == '--help':
         usage(False)
-    cmd = sys.argv.pop(1)
-    if cmd == 'resolve':
-        task_resolve.TaskResolve().run(sys.argv[1:])
-    elif cmd == 'build':
-        task_build.TaskBuild().run(sys.argv[1:])
-    else:
+    cmd = commands.get(sys.argv.pop(1))
+    if cmd is None:
         sys.stderr.write("""Unknown argument: %s\n""" % (cmd, ))
         usage(True)
-
+    else:
+        cmd[0]().run(sys.argv[1:])
 if __name__ == '__main__':
     main()
     pass
