@@ -31,9 +31,10 @@ __builtin__.__dict__['DATADIR'] = datadir
 path = os.path.join('@pkglibdir@')
 sys.path.insert(0, path)
 
-from rdgo import task_resolve, task_build
+from rdgo import task_init, task_resolve, task_build
 
 commands = {
+    "init" : [lambda: task_init.TaskInit(), "Initialize the directory"],
     "build" : [lambda: task_build.TaskBuild(), "Build the packages"],
     "resolve" : [lambda: task_resolve.TaskResolve(), "Perform a git mirror"],
 }

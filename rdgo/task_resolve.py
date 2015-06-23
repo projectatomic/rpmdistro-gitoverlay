@@ -100,6 +100,10 @@ class TaskResolve(Task):
 
         opts = parser.parse_args(argv)
 
+        srcdir = self.workdir + '/src'
+        if not os.path.isdir(srcdir):
+            fatal("Missing src/ directory; run 'rpmdistro-gitoverlay init'?")
+
         ovlpath = self.workdir + '/overlay.yml'
         with open(ovlpath) as f:
             self._overlay = yaml.load(f)
@@ -107,7 +111,7 @@ class TaskResolve(Task):
         self._distgit = require_key(self._overlay, 'distgit')
         self._distgit_prefix = require_key(self._distgit, 'prefix')
 
-        mirror = GitMirror(self.workdir + '/src')
+        mirror = GitMirror(srcdir)
         expanded = copy.deepcopy(self._overlay)
         for component in expanded['components']:
             self._expand_component(component)
