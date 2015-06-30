@@ -22,6 +22,7 @@ import argparse
 import json
 import StringIO
 import subprocess
+import shutil
 import hashlib
 import yaml
 import tempfile
@@ -101,7 +102,7 @@ class TaskBuild(Task):
         elif len(srpms) > 1:
             fatal("Multiple .src.rpm found in {0}".format(distgit_co))
         srpm = srpms[0]
-        os.link(distgit_co + '/' + srpm, self.srpmdir + '/' + target)
+        os.link(distgit_co + '/' + srpm, self.subrpmdir + '/' + target)
 
     def _ensure_srpm(self, component):
         upstream_src = component['src']
@@ -120,8 +121,8 @@ class TaskBuild(Task):
 
         [rpm_version, rpm_release] = self._rpm_verrel(component, upstream_tag, upstream_rev, distgit_desc)
 
-        name = "{0}-{1}-{2}.src.rpm".format(distgit['name'],
-                                            rpm_version, rpm_release)
+        name = "{0}-{1}-{2}.temp.src.rpm".format(distgit['name'],
+                                                 rpm_version, rpm_release)
         tmpdir = tempfile.mkdtemp('', 'rdgo-srpms', self.tmpdir)
         try:
             upstream_co = tmpdir + '/' + component['name']
@@ -152,6 +153,8 @@ class TaskBuild(Task):
 
     def run(self, argv):
         parser = argparse.ArgumentParser(description="Build RPMs")
+        parser.add_argument('--touch-if-changed', action='store', default=None,
+                            help='Create or update timestamp on target path if a change occurred')
         opts = parser.parse_args(argv)
 
         snapshot = self.get_snapshot()
@@ -167,8 +170,8 @@ class TaskBuild(Task):
 
         self.newrpms = self.rpmdir.prepare()
 
-        self.srpmdir = self.newrpms + '/srpms'
-        ensuredir(self.srpmdir)
+        self.subrpmdir = self.newrpms + '/rpms'
+        ensuredir(self.subrpmdir)
 
         mc_argv = ['mockchain', '--recurse', '-r', root_mock,
                    '-l', self.newrpms]
@@ -200,7 +203,7 @@ class TaskBuild(Task):
             srpm_version = srpm[:-len('.src.rpm')]
             newcache[distgit_name] = {'hashv0': component_hash,
                                       'dirname': srpm_version}
-            mc_argv.append(self.srpmdir + '/' + srpm)
+            mc_argv.append(self.subrpmdir + '/' + srpm)
             need_build = True
 
         if need_build:
@@ -208,13 +211,30 @@ class TaskBuild(Task):
             rc = mockchain_main(mc_argv) 
             if rc != 0:
                 fatal("mockchain exited with code {0}".format(rc))
+
+            for (name,component) in newcache.iteritems():
+                dname = component['dirname']
+                dpath = self.newrpms + '/' + dname
+                for name in os.listdir(dpath):
+                    if (not name.endswith('.rpm') or
+                        name.endswith('.temp.src.rpm')):
+                        continue
+                    path = dpath + '/' + name
+                    os.link(path, self.subrpmdir + '/' + name)
+
+            run_sync(['createrepo_c', '-o', self.newrpms, '.'], cwd=self.subrpmdir)
+            with open(newcache_path, 'w') as f:
+                json.dump(newcache, f, sort_keys=True)
+
+            self.rpmdir.commit()
+            if opts.touch_if_changed:
+                # Python doesn't bind futimens() - http://stackoverflow.com/questions/1158076/implement-touch-using-python
+                with open(opts.touch_if_changed, 'a'):
+                    log("Updated timestamp of {}".format(opts.touch_if_changed))
+                    os.utime(opts.touch_if_changed, None)
+            log("Success!")
         else:
-            ensuredir(self.newrpms + '/repodata')
-            run_sync(['createrepo_c', '-o', 'repodata', '.'], cwd=self.newrpms)            
-        with open(newcache_path, 'w') as f:
-            json.dump(newcache, f, sort_keys=True)
+            self.rpmdir.abandon()
+            log("No changes.")
 
-        self.rpmdir.commit()
-
-        log("Success!")
 
