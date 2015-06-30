@@ -102,7 +102,7 @@ class TaskBuild(Task):
         elif len(srpms) > 1:
             fatal("Multiple .src.rpm found in {0}".format(distgit_co))
         srpm = srpms[0]
-        os.link(distgit_co + '/' + srpm, self.subrpmdir + '/' + target)
+        os.link(distgit_co + '/' + srpm, self.newrpmdir + '/' + target)
 
     def _ensure_srpm(self, component):
         upstream_src = component['src']
@@ -166,23 +166,23 @@ class TaskBuild(Task):
         ensuredir(self.tmpdir)
 
         self.mirror = GitMirror(self.workdir + '/src')
-        self.rpmdir = SwappedDirectory(self.workdir + '/rpms')
+        self.builddir = SwappedDirectory(self.workdir + '/build')
 
-        self.newrpms = self.rpmdir.prepare()
+        self.newbuilddir = self.builddir.prepare()
 
-        self.subrpmdir = self.newrpms + '/rpms'
-        ensuredir(self.subrpmdir)
+        self.newrpmdir = self.newbuilddir + '/rpms'
+        ensuredir(self.newrpmdir)
 
         mc_argv = ['mockchain', '--recurse', '-r', root_mock,
-                   '-l', self.newrpms]
+                   '-l', self.newbuilddir]
 
-        oldcache_path = self.rpmdir.path + '/buildstate.json'
+        oldcache_path = self.builddir.path + '/buildstate.json'
         oldcache = {}
         if os.path.exists(oldcache_path):
             with open(oldcache_path) as f:
                 oldcache = json.load(f)
         newcache = {}
-        newcache_path = self.newrpms + '/buildstate.json'
+        newcache_path = self.newbuilddir + '/buildstate.json'
 
         need_build = False
         for component in snapshot['components']:
@@ -193,8 +193,8 @@ class TaskBuild(Task):
                 if cachedstate['hashv0'] == component_hash:
                     cached_dirname = cachedstate['dirname']
                     log("Reusing cached build: {0}".format(cached_dirname))
-                    oldrpmdir = self.rpmdir.path + '/' + cached_dirname
-                    newrpmdir = self.newrpms + '/' + cached_dirname
+                    oldrpmdir = self.builddir.path + '/' + cached_dirname
+                    newrpmdir = self.newbuilddir + '/' + cached_dirname
                     subprocess.check_call(['cp', '-al', oldrpmdir, newrpmdir])
                     newcache[distgit_name] = cachedstate
                     continue
@@ -203,7 +203,7 @@ class TaskBuild(Task):
             srpm_version = srpm[:-len('.src.rpm')]
             newcache[distgit_name] = {'hashv0': component_hash,
                                       'dirname': srpm_version}
-            mc_argv.append(self.subrpmdir + '/' + srpm)
+            mc_argv.append(self.newrpmdir + '/' + srpm)
             need_build = True
 
         if need_build:
@@ -214,19 +214,19 @@ class TaskBuild(Task):
 
             for (name,component) in newcache.iteritems():
                 dname = component['dirname']
-                dpath = self.newrpms + '/' + dname
+                dpath = self.newbuilddir + '/' + dname
                 for name in os.listdir(dpath):
                     if (not name.endswith('.rpm') or
                         name.endswith('.temp.src.rpm')):
                         continue
                     path = dpath + '/' + name
-                    os.link(path, self.subrpmdir + '/' + name)
+                    os.link(path, self.newrpmdir + '/' + name)
 
-            run_sync(['createrepo_c', '-o', self.newrpms, '.'], cwd=self.subrpmdir)
+            run_sync(['createrepo_c', '-o', self.newbuilddir, '.'], cwd=self.newrpmdir)
             with open(newcache_path, 'w') as f:
                 json.dump(newcache, f, sort_keys=True)
 
-            self.rpmdir.commit()
+            self.builddir.commit()
             if opts.touch_if_changed:
                 # Python doesn't bind futimens() - http://stackoverflow.com/questions/1158076/implement-touch-using-python
                 with open(opts.touch_if_changed, 'a'):
@@ -234,7 +234,7 @@ class TaskBuild(Task):
                     os.utime(opts.touch_if_changed, None)
             log("Success!")
         else:
-            self.rpmdir.abandon()
+            self.builddir.abandon()
             log("No changes.")
 
 
