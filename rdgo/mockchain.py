@@ -153,7 +153,7 @@ def do_build(opts, cfg, pkg):
     # returns 2, None, None, None = already built
 
     s_pkg = os.path.basename(pkg)
-    pdn = s_pkg.replace('.src.rpm', '')
+    pdn = s_pkg.replace('.temp.src.rpm', '')
     resdir = '%s/%s' % (opts.local_repo_dir, pdn)
     resdir = os.path.normpath(resdir)
     if not os.path.exists(resdir):

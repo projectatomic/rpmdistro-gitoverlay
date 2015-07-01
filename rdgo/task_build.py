@@ -199,8 +199,8 @@ class TaskBuild(Task):
                     newcache[distgit_name] = cachedstate
                     continue
             srpm = self._ensure_srpm(component)
-            assert srpm.endswith('.src.rpm')
-            srpm_version = srpm[:-len('.src.rpm')]
+            assert srpm.endswith('.temp.src.rpm')
+            srpm_version = srpm[:-len('.temp.src.rpm')]
             newcache[distgit_name] = {'hashv0': component_hash,
                                       'dirname': srpm_version}
             mc_argv.append(self.newrpmdir + '/' + srpm)
@@ -215,12 +215,19 @@ class TaskBuild(Task):
             for (name,component) in newcache.iteritems():
                 dname = component['dirname']
                 dpath = self.newbuilddir + '/' + dname
+                found_srpm = False
                 for name in os.listdir(dpath):
-                    if (not name.endswith('.rpm') or
-                        name.endswith('.temp.src.rpm')):
-                        continue
                     path = dpath + '/' + name
+                    # Mock generated a .src.rpm, clean up ours
+                    if name.endswith('.temp.src.rpm'):
+                        os.unlink(path)
+                        continue
+                    elif not name.endswith('.rpm'):
+                        continue
                     os.link(path, self.newrpmdir + '/' + name)
+                    if name.endswith('.src.rpm'):
+                        assert not found_srpm
+                        found_srpm = True
 
             run_sync(['createrepo_c', '-o', self.newbuilddir, '.'], cwd=self.newrpmdir)
             with open(newcache_path, 'w') as f:
