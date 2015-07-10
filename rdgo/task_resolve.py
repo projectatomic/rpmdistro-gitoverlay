@@ -81,7 +81,8 @@ class TaskResolve(Task):
         
         name = self._ensure_key_or(component, 'name', self._url_to_projname(component['src']))
 
-        distgit = self._ensure_key_or(component, 'distgit', { 'name': name })
+        distgit = self._ensure_key_or(component, 'distgit', {})
+        self._ensure_key_or(distgit, 'name', name)
         distgit_src = self._ensure_key_or(distgit, 'src', 
                                           self._distgit_prefix + ':' + distgit['name'])
         distgit['src'] = self._expand_srckey(distgit, 'src')
