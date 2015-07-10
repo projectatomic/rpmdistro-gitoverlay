@@ -72,7 +72,11 @@ class TaskBuild(Task):
         self._tar_czf_with_prefix(upstream_co, tar_dirname, tmp_tarpath)
         spec_fn = specfile.spec_fn(spec_dir=distgit_co)
         spec = specfile.Spec(distgit_co + '/' + spec_fn)
-        spec.set_tag('Source0', tarname)
+        has_zero = spec.get_tag('Source0', allow_empty=True) is not None
+        source_tag = 'Source'
+        if has_zero:
+            source_tag += '0'
+        spec.set_tag(source_tag, tarname)
         spec.set_tag('Version', rpm_version)
         spec.set_tag('Release', rpm_release + '%{?dist}')
         spec.set_setup_dirname(tar_dirname)
