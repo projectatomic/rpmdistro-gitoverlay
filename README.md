@@ -1,9 +1,12 @@
 # rpmdistro-gitoverlay
 
 This is a tool to manage an "overlay" of packages on top of a base
-distribution, where the upstream sources come from upstream git, and
-the spec files are automatically edited.  The output is a single yum
-repository.
+distribution, where the upstream sources come from upstream git, the
+spec files come from a "dist-git" system like Fedora uses, but the
+spec files are automatically edited to point at git repository
+commits.  
+
+The output is a single rpm-md/yum repository.
 
 It is designed to be useful both for developers locally, as well as a
 fully automated service.
@@ -40,6 +43,10 @@ scale.  An update to glibc should not require rebuilding the entire
 system.  At a higher level, "build purity" should not be the primary
 goal of anyone shipping software.  The primary goal is functional,
 high quality software, with fast continuous delivery.
+
+A future version of rpmdistro-gitoverlay will support a mechanism to
+optionally force reverse dependency rebuilds, as well as a rebuild of
+everything.
 
 Another example of rpmdistro-gitoverlay's anti-hysteresis is that if
 you delete a source from the overlay, all RPMs generated from that
