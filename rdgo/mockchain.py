@@ -118,9 +118,18 @@ def add_local_repo(infile, destfile, baseurl, repoid=None):
     global config_opts
 
     try:
+        # What's going on here is we're dynamically executing the config
+        # file as code, resetting any previous modifications to the `config_opts`
+        # variable.
         with open(infile) as f:
             code = compile(f.read(), infile, 'exec')
         exec(code)
+
+        # Add overrides to the default mock config here:
+        # Ensure we're using the priorities plugin
+        config_opts['priorities.conf'] = '\n[main]\nenabled=1\n'
+        config_opts['yum.conf'] = config_opts['yum.conf'].replace('[main]\n', '[main]\nplugins=1\n')
+
         if not repoid:
             repoid = generate_repo_id(baseurl)
         else:
@@ -133,6 +142,7 @@ enabled=1
 skip_if_unavailable=1
 metadata_expire=30
 cost=1
+priority=1
 """ % (repoid, baseurl, baseurl)
 
         config_opts['yum.conf'] += localyumrepo
@@ -191,8 +201,8 @@ def do_build(opts, cfg, pkg):
             else:
                 mockcmd.append(option)
 
-    print('building %s' % s_pkg)
     mockcmd.append(pkg)
+    print('Executing: {0}'.format(subprocess.list2cmdline(mockcmd)))
     cmd = subprocess.Popen(mockcmd,
            stdout=subprocess.PIPE,
            stderr=subprocess.PIPE)

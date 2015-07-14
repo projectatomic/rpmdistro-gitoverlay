@@ -81,7 +81,7 @@ class TaskBuild(Task):
         spec.set_tag('Release', rpm_release + '%{?dist}')
         spec.set_setup_dirname(tar_dirname)
         # Forcibly override
-        spec.set_tag('Epoch', '99')
+        # spec.set_tag('Epoch', '99')
         if patches_action in (None, 'keep'):
             pass
         elif patches_action == 'drop':

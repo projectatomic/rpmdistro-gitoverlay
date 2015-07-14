@@ -11,6 +11,7 @@ BuildRequires: autoconf automake libtool
 
 Requires: python
 Requires: pygobject2
+Requires: yum-plugin-priorities
 
 %description
 Manage an overlay repository from upstream git.
