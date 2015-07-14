@@ -23,12 +23,27 @@ COPR takes SRPMs as input - there are other projects to do the
 
 COPR is also a service with both a UI and an API, whereas
 rpmdistro-gitoverlay is designed with its sole input to be a YAML
-file, stored in a git repository.  It will attempt to synchronize
-state to whatever is specified in the YAML file.
+file, stored in a git repository.  
 
-For example, if you delete a source from the overlay, all RPMs
-generated from that source will also drop out of the generated
-repository.  Whereas COPR is a stateful system.
+### State synchronization
+
+rpmdistro-gitoverlay will attempt to continually synchronize state to
+whatever is specified in the YAML file.
+
+For example, at any point, a build administrator can choose an earlier
+commit to build if the upstream breaks.  rpmdistro-gitoverlay will
+rebuild the component with that earlier commit.
+
+It will *not* automatically rebuild reverse dependencies like
+[Nix](https://nixos.org/nix/) would, because it's not practical at
+scale.  An update to glibc should not require rebuilding the entire
+system.  At a higher level, "build purity" should not be the primary
+goal of anyone shipping software.  The primary goal is functional,
+high quality software, with fast continuous delivery.
+
+Another example of rpmdistro-gitoverlay's anti-hysteresis is that if
+you delete a source from the overlay, all RPMs generated from that
+source will also drop out of the generated repository.
 
 ## An example overlay file
 
