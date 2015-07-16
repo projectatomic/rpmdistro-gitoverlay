@@ -54,11 +54,17 @@ class TaskBuild(Task):
         if rpm_version.startswith('v'):
             rpm_version = rpm_version[1:]
         rpm_version = rpm_version.replace('-', '.')
-        return [rpm_version, upstream_rev + '.' + distgit_desc.replace('-', '.')]
+        gitdesc = upstream_rev
+        if distgit_desc is not None:
+            gitdesc += '.' + distgit_desc.replace('-', '.')
+        return [rpm_version, gitdesc]
 
     def _generate_srpm(self, component, upstream_tag, upstream_rev, upstream_co, distgit_desc, distgit_co, target):
-        distgit = component['distgit']
-        patches_action = distgit.get('patches', None)
+        distgit = component.get('distgit')
+        if distgit is not None:
+            patches_action = distgit.get('patches', None)
+        else:
+            patches_action = None
 
         upstream_desc = upstream_rev
         if upstream_tag is not None:
@@ -115,24 +121,32 @@ class TaskBuild(Task):
         upstream_desc = upstream_rev
         if upstream_tag is not None:
             upstream_desc = upstream_tag + '-' + upstream_desc
-        distgit = component['distgit']
-        distgit_src = distgit['src']
-        distgit_rev = distgit['revision']
-        [distgit_tag, distgit_rev] = self.mirror.describe(distgit_src, distgit_rev)
-        distgit_desc = distgit_rev
-        if distgit_tag is not None:
-            distgit_desc = distgit_tag + '-' + distgit_desc
+        distgit = component.get('distgit')
+        if distgit is not None:
+            distgit_src = distgit['src']
+            distgit_rev = distgit['revision']
+            [distgit_tag, distgit_rev] = self.mirror.describe(distgit_src, distgit_rev)
+            distgit_desc = distgit_rev
+            if distgit_tag is not None:
+                distgit_desc = distgit_tag + '-' + distgit_desc
+        else:
+            distgit_desc = None
 
         [rpm_version, rpm_release] = self._rpm_verrel(component, upstream_tag, upstream_rev, distgit_desc)
 
-        name = "{0}-{1}-{2}.temp.src.rpm".format(distgit['name'],
+        name = "{0}-{1}-{2}.temp.src.rpm".format(component['pkgname'],
                                                  rpm_version, rpm_release)
         tmpdir = tempfile.mkdtemp('', 'rdgo-srpms', self.tmpdir)
         try:
             upstream_co = tmpdir + '/' + component['name']
             self.mirror.checkout(upstream_src, upstream_rev, upstream_co)
-            distgit_co = tmpdir + '/' + 'distgit-' + distgit['name']
-            self.mirror.checkout(distgit_src, distgit_rev, distgit_co)
+
+            if distgit is not None:
+                distgit_co = tmpdir + '/' + 'distgit-' + distgit['name']
+                self.mirror.checkout(distgit_src, distgit_rev, distgit_co)
+            else:
+                shutil.copy2(upstream_co + '/' + component['pkgname'] + '.spec', tmpdir)
+                distgit_co = tmpdir
 
             self._generate_srpm(component, upstream_tag, upstream_rev, upstream_co, distgit_desc, distgit_co, name)
         finally:
@@ -191,7 +205,7 @@ class TaskBuild(Task):
         need_build = False
         for component in snapshot['components']:
             component_hash = self._json_hash(component)
-            distgit_name = component['distgit']['name']
+            distgit_name = component['pkgname']
             cachedstate = oldcache.get(distgit_name)
             if cachedstate is not None:
                 if cachedstate['hashv0'] == component_hash:

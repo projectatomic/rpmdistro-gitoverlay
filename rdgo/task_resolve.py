@@ -80,18 +80,29 @@ class TaskResolve(Task):
         # TODO support pulling VCS from distgit
         
         name = self._ensure_key_or(component, 'name', self._url_to_projname(component['src']))
-
-        distgit = self._ensure_key_or(component, 'distgit', {})
-        self._ensure_key_or(distgit, 'name', name)
-        distgit_src = self._ensure_key_or(distgit, 'src', 
-                                          self._distgit_prefix + ':' + distgit['name'])
-        distgit['src'] = self._expand_srckey(distgit, 'src')
+        pkgname_default = name
 
         # tag/branch defaults
         if component.get('tag') is None:
             component['branch'] = component.get('branch', 'master')
-        if distgit.get('tag') is None:
-            distgit['branch'] = distgit.get('branch', 'master')
+
+        spec = component.get('spec')
+        if spec is not None:
+            if spec == 'internal':
+                pass
+            else:
+                raise ValueError('Unknown spec type {0}'.format(spec))
+        else:
+            distgit = self._ensure_key_or(component, 'distgit', {})
+            self._ensure_key_or(distgit, 'name', pkgname_default)
+            distgit_src = self._ensure_key_or(distgit, 'src', 
+                                              self._distgit_prefix + ':' + distgit['name'])
+            distgit['src'] = self._expand_srckey(distgit, 'src')
+
+            if distgit.get('tag') is None:
+                distgit['branch'] = distgit.get('branch', 'master')
+
+        self._ensure_key_or(component, 'pkgname', pkgname_default)
 
     def run(self, argv):
         parser = argparse.ArgumentParser(description="Create snapshot.json")
@@ -120,11 +131,13 @@ class TaskResolve(Task):
             do_fetch = opts.fetch_all or (component['name'] in opts.fetch)
             revision = mirror.mirror(component['src'], ref, fetch=do_fetch)
             component['revision'] = revision
-            distgit = component['distgit']
-            ref = self._one_of_keys(distgit, 'freeze', 'branch', 'tag')
-            do_fetch = opts.fetch_all or (distgit['name'] in opts.fetch)
-            revision = mirror.mirror(distgit['src'], ref, fetch=do_fetch)
-            distgit['revision'] = revision
+
+            distgit = component.get('distgit')
+            if distgit is not None:
+                ref = self._one_of_keys(distgit, 'freeze', 'branch', 'tag')
+                do_fetch = opts.fetch_all or (distgit['name'] in opts.fetch)
+                revision = mirror.mirror(distgit['src'], ref, fetch=do_fetch)
+                distgit['revision'] = revision
 
         del expanded['aliases']
 

@@ -1,4 +1,4 @@
-Summary: Overlay repository manager
+Summary: Build chain of newer git snapshots via rpm specfiles
 Name: rpmdistro-gitoverlay
 Version: 2015.1
 Release: 1%{?dist}
@@ -8,13 +8,15 @@ License: LGPLv2+
 URL: https://github.com/cgwalters/rpmdistro-gitoverlay
 # We always run autogen.sh
 BuildRequires: autoconf automake libtool
+BuildRequires: git
 
 Requires: python
 Requires: pygobject2
+Requires: mock
 Requires: yum-plugin-priorities
 
 %description
-Manage an overlay repository from upstream git.
+%{summary}
 
 %prep
 %autosetup -Sgit
@@ -28,6 +30,7 @@ make %{?_smp_mflags}
 make install DESTDIR=%{buildroot} INSTALL="install -p -c"
 
 %files
-%doc COPYING README.md
+%license COPYING
+%doc README.md
 %{_bindir}/%{name}
 %{_libdir}/%{name}/
