@@ -159,11 +159,24 @@ class GitMirror(object):
         elif fetch:
             self._run('fetch', cwd=mirrordir)
         
+        rev = subprocess.check_output(['git', 'rev-parse', branch_or_tag], cwd=mirrordir).strip()
+
+        # Cache making it more efficient to remirror the same commit
+        # multiple times
+        cachepath = mirrordir + '/submodules-cache-stamp'
+        if os.path.exists(cachepath):
+            cached_rev = open(cachepath).read().strip()
+            if cached_rev == rev:
+                return rev
+
         for module in self._list_submodules(mirrordir, url, branch_or_tag):
             log("Processing {0}".format(module))
             self.mirror(module.url, module.checksum,
                         fetch=fetch, fetch_continue=fetch_continue)
-        return subprocess.check_output(['git', 'rev-parse', branch_or_tag], cwd=mirrordir).strip()
+        with open(cachepath + '.tmp', 'w') as f:
+            f.write(rev + '\n')
+        os.rename(cachepath + '.tmp', cachepath)
+        return rev
 
     def _process_checkout_submodules(self, checkout, url):
         for module in self._list_submodules_in(checkout, url):
