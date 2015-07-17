@@ -49,10 +49,15 @@ class TaskBuild(Task):
         run_sync(['tar', '--exclude-vcs', '-czf', output, '--transform', 's,^' + bn + ',' + prefix + ',', bn],
                  cwd=dn)
 
+    def _strip_all_prefixes(self, s, prefixes):
+        for prefix in prefixes:
+            if s.startswith(prefix):
+                s = s[len(prefix):]
+        return s
+
     def _rpm_verrel(self, component, upstream_tag, upstream_rev, distgit_desc):
         rpm_version = upstream_tag or '0'
-        if rpm_version.startswith('v'):
-            rpm_version = rpm_version[1:]
+        rpm_version = self._strip_all_prefixes(rpm_version, ['v', component['pkgname'] + '-'])
         rpm_version = rpm_version.replace('-', '.')
         gitdesc = upstream_rev
         if distgit_desc is not None:
