@@ -71,6 +71,8 @@ def parse_args(args):
             help="add these repo baseurls to the chroot's yum config")
     parser.add_option('--recurse', default=False, action='store_true',
             help="if more than one pkg and it fails to build, try to build the rest and come back to it")
+    parser.add_option('--preserve-failed-buildroots', default=False, action='store_true',
+            help="Preserve buildroots of failing builds")
     parser.add_option('--logdir', default=None, dest='logdir',
             help="Add log files to this directory")
     parser.add_option('--tmp_prefix', default=None, dest='tmp_prefix',
@@ -156,6 +158,17 @@ priority=1
 
     return True, ''
 
+def get_mock_base_argv(opts, cfg):
+   return ['/usr/bin/mock',
+           '--configdir', opts.config_path,
+           '--uniqueext', opts.uniqueext,
+           '-r', cfg]
+
+def do_clean_root(opts, cfg, pkg):
+    mockcmd = get_mock_base_argv(opts, cfg)
+    mockcmd.extend(['--clean'])
+    subprocess.check_call(mockcmd)
+
 def do_build(opts, cfg, pkg):
 
     # returns 0, cmd, out, err = failure
@@ -179,13 +192,11 @@ def do_build(opts, cfg, pkg):
     if os.path.exists(fail_file):
         os.unlink(fail_file)
 
-    mockcmd = ['/usr/bin/mock',
-               '--nocheck',   # Tests should run after builds
-               '--yum',
-               '--configdir', opts.config_path,
-               '--resultdir', resdir,
-               '--uniqueext', opts.uniqueext,
-               '-r', cfg, ]
+    mockcmd = get_mock_base_argv(opts, cfg)
+    mockcmd.extend(['--nocheck', # Tests should run after builds
+                    '--yum',
+                    '--resultdir', resdir,
+                    '--no-cleanup-after'])
     # heuristic here, if user pass for mock "-d foo", but we must be care to leave
     # "-d'foo bar'" or "--define='foo bar'" as is
     compiled_re_1 = re.compile(r'^(-\S)\s+(.+)')
@@ -326,10 +337,12 @@ def main(args):
                 log(opts.logfile, "Error building %s." % os.path.basename(pkg))
                 if opts.recurse:
                     log(opts.logfile, "Will try to build again (if some other package will succeed).")
+                    do_clean_root(opts, config_opts['chroot_name'], pkg)
                 else:
                     log(opts.logfile, "See logs/results in %s" % opts.local_repo_dir)
             elif ret == 1:
                 log(opts.logfile, "Success building %s" % os.path.basename(pkg))
+                do_clean_root(opts, config_opts['chroot_name'], pkg)
                 built_pkgs.append(pkg)
                 # createrepo with the new pkgs
                 out, err = createrepo(opts.local_repo_dir)
