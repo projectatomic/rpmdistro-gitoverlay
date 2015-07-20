@@ -252,7 +252,9 @@ class TaskBuild(Task):
                         assert not found_srpm
                         found_srpm = True
 
-            run_sync(['createrepo_c', '-o', self.newbuilddir, '.'], cwd=self.newrpmdir)
+            run_sync(['createrepo_c', '-o', '.', self.newrpmdir], cwd=self.newbuilddir)
+            # No idea why createrepo is injecting this
+            os.symlink('rpms', self.newbuilddir + '/packages')
             with open(newcache_path, 'w') as f:
                 json.dump(newcache, f, sort_keys=True)
 
