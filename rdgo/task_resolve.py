@@ -94,7 +94,7 @@ class TaskResolve(Task):
                 raise ValueError('Unknown spec type {0}'.format(spec))
         else:
             distgit = self._ensure_key_or(component, 'distgit', {})
-            self._ensure_key_or(distgit, 'name', pkgname_default)
+            pkgname_default = self._ensure_key_or(distgit, 'name', pkgname_default)
             distgit_src = self._ensure_key_or(distgit, 'src', 
                                               self._distgit_prefix + ':' + distgit['name'])
             distgit['src'] = self._expand_srckey(distgit, 'src')
