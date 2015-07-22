@@ -13,6 +13,7 @@ BuildRequires: git
 
 Requires: python
 Requires: pygobject2
+Requires: PyYAML
 Requires: mock
 Requires: yum-plugin-priorities
 
