@@ -15,6 +15,8 @@ Requires: python
 Requires: pygobject2
 Requires: PyYAML
 Requires: pygobject3
+Requires: libgsystem
+Requires: python-six
 Requires: mock
 Requires: yum-plugin-priorities
 
