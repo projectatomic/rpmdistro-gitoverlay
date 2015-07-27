@@ -25,7 +25,7 @@ import subprocess
 import tempfile
 import yaml
 
-from gi.repository import GLib, Gio, GSystem
+from gi.repository import GLib, Gio
 
 from .utils import log, fatal, run_sync, rmrf, ensuredir
 

@@ -18,10 +18,12 @@
 # Boston, MA 02111-1307, USA.
 
 import sys
+import shutil
+import errno
 import subprocess
 import os
 
-from gi.repository import GLib, Gio, GSystem
+from gi.repository import GLib, Gio
 
 def fatal(msg):
     print >>sys.stderr, msg
@@ -39,10 +41,21 @@ def run_sync(args, **kwargs):
     subprocess.check_call(args, **kwargs)
 
 def rmrf(path):
-    GSystem.shutil_rm_rf(Gio.File.new_for_path(path), None)
+    if os.path.isdir(path):
+        shutil.rmtree(path)
+    else:
+        try:
+            os.unlink(path)
+        except OSError as e:
+            if e.errno != errno.ENOENT:
+                raise
 
 def ensuredir(path, with_parents=False):
-    GSystem.file_ensure_directory(Gio.File.new_for_path(path), with_parents, None)
+    try:
+        os.makedirs(path)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
 
 def ensure_clean_dir(path):
     rmrf(path)
