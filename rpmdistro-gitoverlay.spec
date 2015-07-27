@@ -17,6 +17,7 @@ Requires: pygobject2
 Requires: PyYAML
 Requires: pygobject3
 Requires: python-six
+Requires: rpm-build
 Requires: mock
 Requires: yum-plugin-priorities
 
