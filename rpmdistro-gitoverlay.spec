@@ -8,6 +8,7 @@ Source0: %{name}-%{version}.tar.xz
 License: LGPLv2+
 URL: https://github.com/cgwalters/rpmdistro-gitoverlay
 # We always run autogen.sh
+BuildArch: noarch
 BuildRequires: autoconf automake libtool
 BuildRequires: git
 
