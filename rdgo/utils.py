@@ -18,6 +18,7 @@
 # Boston, MA 02111-1307, USA.
 
 import sys
+import stat
 import shutil
 import errno
 import subprocess
@@ -41,7 +42,11 @@ def run_sync(args, **kwargs):
     subprocess.check_call(args, **kwargs)
 
 def rmrf(path):
-    if os.path.isdir(path):
+    try:
+        stbuf = os.lstat(path)
+    except OSError as e:
+        return
+    if stat.S_ISDIR(stbuf.st_mode):
         shutil.rmtree(path)
     else:
         try:
