@@ -18,6 +18,7 @@
 # Boston, MA 02111-1307, USA.
 
 import os
+import sys
 import re
 import collections
 import shutil
@@ -157,6 +158,7 @@ class GitMirror(object):
             self._run('config', 'gc.auto', '0', cwd=tmp_mirror)
             os.rename(tmp_mirror, mirrordir)
         elif fetch:
+            sys.stdout.write(os.path.basename(mirrordir) + ': ')
             self._run('fetch', cwd=mirrordir)
         
         rev = subprocess.check_output(['git', 'rev-parse', branch_or_tag], cwd=mirrordir).strip()
