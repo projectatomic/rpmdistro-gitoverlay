@@ -55,6 +55,14 @@ def rmrf(path):
             if e.errno != errno.ENOENT:
                 raise
 
+def hardlink_or_copy(src, dest):
+    try:
+        os.link(src, dest)
+    except OSError as e:
+        if e.errno != errno.EXDEV:
+            raise
+        shutil.copy(src,dest)
+
 def ensuredir(path, with_parents=False):
     try:
         os.makedirs(path)

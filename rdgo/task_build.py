@@ -29,7 +29,7 @@ import tempfile
 import copy
 
 from .swappeddir import SwappedDirectory
-from .utils import log, fatal, ensuredir, rmrf, ensure_clean_dir, run_sync
+from .utils import log, fatal, ensuredir, rmrf, ensure_clean_dir, run_sync, hardlink_or_copy
 from .task import Task
 from . import specfile 
 from .git import GitMirror
@@ -117,7 +117,7 @@ class TaskBuild(Task):
         elif len(srpms) > 1:
             fatal("Multiple .src.rpm found in {0}".format(distgit_co))
         srpm = srpms[0]
-        os.link(distgit_co + '/' + srpm, self.newrpmdir + '/' + target)
+        hardlink_or_copy(distgit_co + '/' + srpm, self.newrpmdir + '/' + target)
 
     def _ensure_srpm(self, component):
         upstream_src = component['src']
@@ -176,6 +176,8 @@ class TaskBuild(Task):
 
     def run(self, argv):
         parser = argparse.ArgumentParser(description="Build RPMs")
+        parser.add_argument('--tempdir', action='store', default=None,
+                            help='Path to directory for temporary working files')
         parser.add_argument('--touch-if-changed', action='store', default=None,
                             help='Create or update timestamp on target path if a change occurred')
         opts = parser.parse_args(argv)
@@ -185,8 +187,7 @@ class TaskBuild(Task):
         root = require_key(snapshot, 'root')
         root_mock = require_key(root, 'mock')
 
-        self.tmpdir = self.workdir + '/tmp'
-        ensuredir(self.tmpdir)
+        self.tmpdir = opts.tempdir
 
         self.mirror = GitMirror(self.workdir + '/src')
         self.builddir = SwappedDirectory(self.workdir + '/build')
