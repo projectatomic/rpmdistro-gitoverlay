@@ -242,9 +242,7 @@ def log(lf, msg):
 config_opts = {}
 
 def main(args):
-    print ("args: {0}".format(args))
     opts, args = parse_args(args)
-    print ("opts: {0} args: {1}".format(opts, args))
     # take mock config + list of pkgs
     cfg = opts.chroot
     pkgs = args[1:]
