@@ -1,37 +1,41 @@
 # An example overlay file
 
+aliases: 
+  - name: github
+    url: https://github.com/
+
+  - name: fd
+    url: git://anongit.freedesktop.org/git/
+
+  - name: fedorapkgs
+    url: git://pkgs.fedoraproject.org/
+
 distgit:
   - prefix: fedorapkgs
   
-roots:
-  - mock: fedora-22-x86_64
-    distgit-branch: f22
+root:
+  mock: fedora-22-x86_64
+  distgit-branch: f22
 
 components:
-  - src: gnome:ostree
-    distgit: { src: ostree } # automatic
+  # Pull from upstream git master and dist-git named `etcd`
+  - src: github:coreos/etcd
 
-
-  # distgit can be primary
-  - distgit: { name: ostree }
-    # inherit src: from VCS in spec file
-    branch: 2015-stable  # upstream git branch
-
-
-  # Demonstrate separate distgit name
-  - src: github:docker/docker
+  - src: github:shurcooL/sanitized_anchor_name
+    # Arbitrary commit as of 20150716
+    tag: 11a20b799bf22a02808c862eb6ca09f7fb38f84a
     distgit:
-      name: docker-io
+      name: golang-github-shurcooL-sanitized_anchor_name
 
+  # We support dropping patches from dist-git automatically
+  - src: github:projectatomic/rpm-ostree
+    distgit:
+      patches: drop
 
+  # Let's say something goes wrong; you can "freeze" to
+  # a particular commit.
   - src: github:docker/docker
     freeze: 20556a63338d04f76aa3ec0d77c95072b75e1d29
     distgit:
       name: docker-io
       freeze: da39a3ee5e6b4b0d3255bfef95601890afd80709
-
-  - src: github:docker/docker
-    # Automatically search <topdir>/patches/docker/ and apply in order
-    patches: true
-    distgit:
-      name: docker-io
