@@ -28,6 +28,7 @@ except ImportError:
     from urlparse import urlsplit
 import sys
 import subprocess
+import json
 import os
 import optparse
 import tempfile
@@ -169,6 +170,25 @@ def do_clean_root(opts, cfg, pkg):
     mockcmd.extend(['--clean'])
     subprocess.check_call(mockcmd)
 
+def postprocess_mock_resultdir(resdir, success):
+    statelog = resdir + '/state.log'
+    status = 'unknown'
+    with open(statelog) as f:
+        for line in f:
+            if line.find('Start: build setup ') >= 0:
+                status = 'root-failed'
+            elif line.find('Start: rpmbuild ') >= 0:
+                status = 'build-failed'
+    if status == 'build-failed':
+        with open(resdir + '/build.log') as f:
+            for line in f:
+                if line.startswith('error: '):
+                    sys.stderr.write(line)
+    if not success and status == 'unknown':
+        status = 'unknown-failed'
+    with open(resdir + '/status.json', 'w') as f:
+        json.dump({'status': status}, f)
+
 def do_build(opts, cfg, pkg):
 
     # returns 0, cmd, out, err = failure
@@ -218,14 +238,10 @@ def do_build(opts, cfg, pkg):
            stdout=subprocess.PIPE,
            stderr=subprocess.PIPE)
     out, err = cmd.communicate()
-    if cmd.returncode == 0:
-        open(success_file, 'w').write('done\n')
-        ret = 1
-    else:
-        sys.stderr.write(err)
-        open(fail_file, 'w').write('undone\n')
-        ret = 0
+    success = cmd.returncode == 0
+    postprocess_mock_resultdir(resdir, success)
 
+    ret = 1 if success else 0
     return ret, cmd, out, err
 
 
