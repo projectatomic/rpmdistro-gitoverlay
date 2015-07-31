@@ -20,6 +20,7 @@
 import os
 import json
 import argparse
+import subprocess
 import yaml
 import copy
 
@@ -109,6 +110,8 @@ class TaskResolve(Task):
         parser.add_argument('--fetch-all', action='store_true', help='Fetch all git repositories')
         parser.add_argument('-f', '--fetch', action='append', default=[],
                             help='Fetch the specified git repository')
+        parser.add_argument('--touch-if-changed', action='store', default=None,
+                            help='Create or update timestamp on target path if a change occurred')
 
         opts = parser.parse_args(argv)
 
@@ -147,5 +150,19 @@ class TaskResolve(Task):
         snapshot_tmppath = snapshot_path + '.tmp'
         with open(snapshot_tmppath, 'w') as f:
             json.dump(expanded, f, indent=4, sort_keys=True)
-        os.rename(snapshot_tmppath, snapshot_path)
-        log("Wrote: " + snapshot_path)
+
+        changed = True
+        if (os.path.exists(snapshot_path) and
+            subprocess.call(['cmp', '-s', snapshot_path, snapshot_tmppath]) == 0):
+            changed = False
+        if changed:
+            os.rename(snapshot_tmppath, snapshot_path)
+            log("Wrote: " + snapshot_path)
+            if opts.touch_if_changed:
+                with open(opts.touch_if_changed, 'a'):
+                    log("Updated timestamp of {}".format(opts.touch_if_changed))
+                    os.utime(opts.touch_if_changed, None)
+        else:
+            os.unlink(snapshot_tmppath)
+            log("No changes.")
+                
