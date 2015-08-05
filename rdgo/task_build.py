@@ -189,12 +189,25 @@ class TaskBuild(Task):
         h.update(serialized)
         return h.hexdigest()
 
+    def _move_logs_to_logdir(self, builddir, logdir):
+        for dname in os.listdir(builddir):
+            dpath = os.path.join(builddir, dname)
+            if os.path.isfile(dpath + '/status.json'):
+                logpath = logdir + '/' + dname 
+                os.mkdir(logpath)
+                for subname in os.listdir(dpath):
+                    subpath = dpath + '/' + subname
+                    if subname.endswith(('.json', '.log')):
+                        shutil.move(subpath, logpath + '/' + subname)
+
     def run(self, argv):
         parser = argparse.ArgumentParser(description="Build RPMs")
         parser.add_argument('--tempdir', action='store', default=None,
                             help='Path to directory for temporary working files')
         parser.add_argument('--touch-if-changed', action='store', default=None,
                             help='Create or update timestamp on target path if a change occurred')
+        parser.add_argument('--logdir', action='store', default=None,
+                            help='Store build logs in this directory')
         opts = parser.parse_args(argv)
 
         snapshot = self.get_snapshot()
@@ -248,6 +261,8 @@ class TaskBuild(Task):
         if need_build:
             log("Performing mockchain: {0}".format(mc_argv))
             rc = mockchain_main(mc_argv) 
+            if opts.logdir is not None:
+                self._move_logs_to_logdir(self.newbuilddir, opts.logdir)
             if rc != 0:
                 fatal("mockchain exited with code {0}".format(rc))
 
