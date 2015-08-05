@@ -26,8 +26,10 @@ dist-snapshot:
 	xz $(PKG_VER).tar 
 
 srpm: dist-snapshot
-	 sed -e "s,^Version:.*,Version: $(GITREV_FOR_PKG)," $(PACKAGE).spec > $(PACKAGE).spec.tmp; \
-	 ./rpmbuild-cwd -bs $(PACKAGE).spec.tmp
+	(srcdir=$$(pwd); tmpdir=$$(mktemp -d); \
+	 sed -e "s,^Version:.*,Version: $(GITREV_FOR_PKG)," $(PACKAGE).spec > $${tmpdir}/$(PACKAGE).spec; \
+	 cp $(PKG_VER).tar.xz $${tmpdir}; \
+	 cd $${tmpdir} && ${srcdir}/rpmbuild-cwd -bs $(PACKAGE).spec)
 
 rpm: srpm
 	$(srcdir)/rpmbuild-cwd --rebuild $(PKG_VER)*.src.rpm
