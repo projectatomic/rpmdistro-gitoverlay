@@ -236,7 +236,11 @@ class TaskBuild(Task):
         newcache = {}
         newcache_path = self.newbuilddir + '/buildstate.json'
 
+        old_component_count = len(oldcache)
+        new_component_count = len(snapshot['components'])
+
         need_build = False
+        need_createrepo = old_component_count != new_component_count
         for component in snapshot['components']:
             component_hash = self._json_hash(component)
             distgit_name = component['pkgname']
@@ -257,6 +261,7 @@ class TaskBuild(Task):
                                       'dirname': srpm_version}
             mc_argv.append(self.newrpmdir + '/' + srpm)
             need_build = True
+            need_createrepo = True
 
         if need_build:
             log("Performing mockchain: {0}".format(mc_argv))
@@ -265,7 +270,10 @@ class TaskBuild(Task):
                 self._move_logs_to_logdir(self.newbuilddir, opts.logdir)
             if rc != 0:
                 fatal("mockchain exited with code {0}".format(rc))
+        elif need_createrepo:
+            log("No build neeeded, but component set changed")
 
+        if need_createrepo:
             for (name,component) in newcache.iteritems():
                 dname = component['dirname']
                 dpath = self.newbuilddir + '/' + dname
