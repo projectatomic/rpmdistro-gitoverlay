@@ -17,6 +17,8 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
+from __future__ import print_function
+
 import os
 import argparse
 import json
@@ -64,7 +66,10 @@ class TaskBuild(Task):
             gitdesc += '.' + distgit_desc.replace('-', '.')
         return [rpm_version, gitdesc]
 
-    def _generate_srpm(self, component, upstream_tag, upstream_rev, upstream_co, distgit_desc, distgit_co, target):
+    def _generate_srpm(self, component, upstream_tag, upstream_rev, upstream_co,
+                       distgit_desc, distgit_co,
+                       target,
+                       prep_cmd=None):
         distgit = component.get('distgit')
         if distgit is not None:
             patches_action = distgit.get('patches', None)
@@ -106,6 +111,9 @@ class TaskBuild(Task):
         for v in ['_sourcedir', '_specdir', '_builddir',
                   '_srcrpmdir', '_rpmdir']:
             rpmbuild_argv.extend(['--define', '%' + v + ' ' + distgit_co])
+        if prep_cmd is not None:
+            print("Executing preparation command")
+            run_sync(prep_cmd, cwd=distgit_co, shell=True)
         rpmbuild_argv.extend(['-bs', spec_fn])
         run_sync(rpmbuild_argv, cwd=distgit_co)
         srpms = []
@@ -153,7 +161,14 @@ class TaskBuild(Task):
                 shutil.copy2(upstream_co + '/' + component['pkgname'] + '.spec', tmpdir)
                 distgit_co = tmpdir
 
-            self._generate_srpm(component, upstream_tag, upstream_rev, upstream_co, distgit_desc, distgit_co, name)
+            prep_cmd=None
+            if distgit is not None:
+                prep_cmd = distgit.get('prep-command', None)
+
+            self._generate_srpm(component, upstream_tag, upstream_rev, upstream_co,
+                                distgit_desc, distgit_co,
+                                name,
+                                prep_cmd=prep_cmd)
         finally:
             if not 'PRESERVE_TEMP' in os.environ:
                 rmrf(tmpdir)
