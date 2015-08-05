@@ -38,7 +38,11 @@ def log(msg):
 
 def run_sync(args, **kwargs):
     """Wraps subprocess.check_call(), logging the command line too."""
-    log("Running: %s" % (subprocess.list2cmdline(args), ))
+    if isinstance(args, str) or isinstance(args, unicode):
+        argstr = args
+    else:
+        argstr = subprocess.list2cmdline(args)
+    log("Running: {0}".format(argstr))
     subprocess.check_call(args, **kwargs)
 
 def rmrf(path):
