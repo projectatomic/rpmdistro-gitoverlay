@@ -179,11 +179,16 @@ def postprocess_mock_resultdir(resdir, success):
                 status = 'root-failed'
             elif line.find('Start: rpmbuild ') >= 0:
                 status = 'build-failed'
+            elif line.find('Finish: rpmbuild ') >= 0:
+                status = 'expected-success'
     if status == 'build-failed':
         with open(resdir + '/build.log') as f:
             for line in f:
                 if line.startswith('error: '):
                     sys.stderr.write(line)
+    elif success:
+        assert status == 'expected-success'
+        status = 'success'
     if not success and status == 'unknown':
         status = 'unknown-failed'
     with open(resdir + '/status.json', 'w') as f:
