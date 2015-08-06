@@ -192,13 +192,20 @@ class TaskBuild(Task):
     def _move_logs_to_logdir(self, builddir, logdir):
         for dname in os.listdir(builddir):
             dpath = os.path.join(builddir, dname)
-            if os.path.isfile(dpath + '/status.json'):
-                logpath = logdir + '/' + dname 
-                os.mkdir(logpath)
+            statusjson = dpath + '/status.json'
+            if os.path.isfile(statusjson):
+                with open(statusjson) as f:
+                    status = json.load(f)
+                success = (status['status'] == 'success')
+                if success:
+                    sublogdir = logdir + '/success/' + dname
+                else:
+                    sublogdir = logdir + '/failed/' + dname
+                ensure_clean_dir(sublogdir)
                 for subname in os.listdir(dpath):
                     subpath = dpath + '/' + subname
                     if subname.endswith(('.json', '.log')):
-                        shutil.move(subpath, logpath + '/' + subname)
+                        shutil.move(subpath, sublogdir + '/' + subname)
 
     def run(self, argv):
         parser = argparse.ArgumentParser(description="Build RPMs")
