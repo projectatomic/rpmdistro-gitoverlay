@@ -280,7 +280,7 @@ class TaskBuild(Task):
             need_createrepo = True
 
         if need_build:
-            log("Performing mockchain: {0}".format(mc_argv))
+            log("Performing mockchain: {0}".format(subprocess.list2cmdline(mc_argv)))
             rc = mockchain_main(mc_argv) 
             if opts.logdir is not None:
                 self._move_logs_to_logdir(self.newbuilddir, opts.logdir)
