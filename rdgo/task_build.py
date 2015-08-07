@@ -232,6 +232,15 @@ class TaskBuild(Task):
         self.newrpmdir = self.newbuilddir + '/rpms'
         ensuredir(self.newrpmdir)
 
+        # Support including mock .cfg files next to overlay.yml
+        if root_mock.endswith('.cfg') and not os.path.isabs(root_mock):
+            target_root_mock = os.path.join(self.workdir, root_mock)
+            if os.path.isfile(target_root_mock):
+                root_mock = target_root_mock
+            else:
+                contextdir = os.path.dirname(os.path.realpath(self.workdir + '/overlay.yml'))
+                root_mock = os.path.join(contextdir, root_mock)
+
         mc_argv = ['mockchain', '--recurse', '-r', root_mock,
                    '-l', self.newbuilddir]
 
