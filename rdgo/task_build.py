@@ -125,7 +125,7 @@ class TaskBuild(Task):
         elif len(srpms) > 1:
             fatal("Multiple .src.rpm found in {0}".format(distgit_co))
         srpm = srpms[0]
-        hardlink_or_copy(distgit_co + '/' + srpm, self.newrpmdir + '/' + target)
+        hardlink_or_copy(distgit_co + '/' + srpm, self.newsrpmdir + '/' + target)
 
     def _ensure_srpm(self, component):
         upstream_src = component['src']
@@ -229,8 +229,8 @@ class TaskBuild(Task):
 
         self.newbuilddir = self.builddir.prepare()
 
-        self.newrpmdir = self.newbuilddir + '/rpms'
-        ensuredir(self.newrpmdir)
+        self.newsrpmdir = self.newbuilddir + '/srpms'
+        ensuredir(self.newsrpmdir)
 
         # Support including mock .cfg files next to overlay.yml
         if root_mock.endswith('.cfg') and not os.path.isabs(root_mock):
@@ -275,7 +275,7 @@ class TaskBuild(Task):
             srpm_version = srpm[:-len('.temp.src.rpm')]
             newcache[distgit_name] = {'hashv0': component_hash,
                                       'dirname': srpm_version}
-            mc_argv.append(self.newrpmdir + '/' + srpm)
+            mc_argv.append(self.newsrpmdir + '/' + srpm)
             need_build = True
             need_createrepo = True
 
@@ -291,26 +291,10 @@ class TaskBuild(Task):
             log("No build neeeded, but component set changed")
 
         if need_createrepo:
-            for (name,component) in newcache.iteritems():
-                dname = component['dirname']
-                dpath = self.newbuilddir + '/' + dname
-                found_srpm = False
-                for name in os.listdir(dpath):
-                    path = dpath + '/' + name
-                    # Mock generated a .src.rpm, clean up ours
-                    if name.endswith('.temp.src.rpm'):
-                        os.unlink(path)
-                        continue
-                    elif not name.endswith('.rpm'):
-                        continue
-                    os.link(path, self.newrpmdir + '/' + name)
-                    if name.endswith('.src.rpm'):
-                        assert not found_srpm
-                        found_srpm = True
+            rmrf(self.newsrpmdir)
 
-            run_sync(['createrepo_c', '-o', '.', self.newrpmdir], cwd=self.newbuilddir)
+            run_sync(['createrepo_c', '--update', '.'], cwd=self.newbuilddir)
             # No idea why createrepo is injecting this
-            os.symlink('rpms', self.newbuilddir + '/packages')
             with open(newcache_path, 'w') as f:
                 json.dump(newcache, f, sort_keys=True)
 
