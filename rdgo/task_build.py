@@ -283,6 +283,7 @@ class TaskBuild(Task):
             log("Performing mockchain: {0}".format(subprocess.list2cmdline(mc_argv)))
             rc = mockchain_main(mc_argv) 
             if opts.logdir is not None:
+                ensure_clean_dir(opts.logdir)
                 self._move_logs_to_logdir(self.newbuilddir, opts.logdir)
             if rc != 0:
                 fatal("mockchain exited with code {0}".format(rc))
