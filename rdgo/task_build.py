@@ -293,7 +293,7 @@ class TaskBuild(Task):
         if need_createrepo:
             rmrf(self.newsrpmdir)
 
-            run_sync(['createrepo_c', '--update', '.'], cwd=self.newbuilddir)
+            run_sync(['createrepo_c', '--no-database', '--update', '.'], cwd=self.newbuilddir)
             # No idea why createrepo is injecting this
             with open(newcache_path, 'w') as f:
                 json.dump(newcache, f, sort_keys=True)
