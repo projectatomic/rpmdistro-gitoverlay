@@ -228,12 +228,13 @@ class Spec(object):
             return 'autosetup'
         return 'rpm'
 
-    def set_setup_dirname(self, srcname):
+    def set_setup_dirname(self, srcname, srcn=0):
         newtxt = StringIO.StringIO()
         ws_re = re.compile(r'\s+')
         matched = False
         setupparser = argparse.ArgumentParser()
         setupparser.add_argument('-n', action='store_true')
+        setupparser.add_argument('-b', action='store', default=str(srcn))
         for line in StringIO.StringIO(self._txt):
             if not (line.startswith('%setup') or
                     line.startswith('%autosetup')):
@@ -241,6 +242,9 @@ class Spec(object):
                 continue
             parts = ws_re.split(line)
             opts,remain = setupparser.parse_known_args(parts[1:])
+            if int(opts.b) != srcn:
+                newtxt.write(line)
+                continue
             newsetup = [parts[0]]
             newsetup.extend(remain)
             newsetup.extend(['-n', srcname])
