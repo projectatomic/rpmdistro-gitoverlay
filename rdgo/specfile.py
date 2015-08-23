@@ -19,6 +19,7 @@
 # Boston, MA 02111-1307, USA.
 
 import codecs
+import argparse
 import StringIO
 import os
 import re
@@ -231,26 +232,18 @@ class Spec(object):
         newtxt = StringIO.StringIO()
         ws_re = re.compile(r'\s+')
         matched = False
+        setupparser = argparse.ArgumentParser()
+        setupparser.add_argument('-n', action='store_true')
         for line in StringIO.StringIO(self._txt):
             if not (line.startswith('%setup') or
                     line.startswith('%autosetup')):
                 newtxt.write(line)
                 continue
             parts = ws_re.split(line)
-            newsetup = []
-            skip = False
-            found_dashn = False
-            for part in parts:
-                if skip:
-                    skip = False
-                    continue
-                newsetup.append(part.strip())
-                if part == '-n':
-                    newsetup.append(srcname)
-                    skip = True
-                    found_dashn = True
-            if not found_dashn:
-                newsetup.extend(['-n', srcname])
+            opts,remain = setupparser.parse_known_args(parts[1:])
+            newsetup = [parts[0]]
+            newsetup.extend(remain)
+            newsetup.extend(['-n', srcname])
             matched = True
             newtxt.write(' '.join(newsetup) + '\n')
         if not matched:
