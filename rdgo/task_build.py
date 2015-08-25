@@ -96,6 +96,8 @@ class TaskBuild(Task):
         spec.set_tag('Version', rpm_version)
         spec.set_tag('Release', rpm_release + '%{?dist}')
         spec.set_setup_dirname(tar_dirname)
+        # Anything useful there you should find in upstream dist-git or equivalent.
+        spec.delete_changelog()
         # Forcibly override
         # spec.set_tag('Epoch', '99')
         if patches_action in (None, 'keep'):
