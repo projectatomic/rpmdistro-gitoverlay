@@ -27,7 +27,7 @@ class Task(object):
 
     def get_snapshot(self):
         if self._snapshot is None:
-            with open(self.workdir + '/snapshot.json') as f:
+            with open(self.workdir + '/snapshot/snapshot.json') as f:
                 self._snapshot = json.load(f)
         return self._snapshot
         
