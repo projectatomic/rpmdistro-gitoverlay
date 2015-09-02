@@ -53,9 +53,19 @@ class SwappedDirectory(object):
     def _newpath(self):
         return self.dn + '/' + self._newdir()
             
-    def prepare(self):
+    def prepare(self, save_partial_dir=None):
         self.read()
         newpath = self._newpath()
+        if save_partial_dir is not None:
+            try:
+                stbuf = os.stat(newpath)
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
+                stbuf = None
+            if stbuf is not None:
+                rmrf(save_partial_dir)
+                os.rename(newpath, save_partial_dir)
         ensure_clean_dir(newpath)
         return newpath
 
