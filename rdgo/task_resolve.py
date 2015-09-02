@@ -76,19 +76,9 @@ class TaskResolve(Task):
 
     def _expand_component(self, component):
         # 'src' and 'distgit' mappings
-        if component.get('src') is None:
-            fatal("Component {0} is missing 'src' or 'distgit'")
-
-        component['src'] = self._expand_srckey(component, 'src')
-
-        # TODO support pulling VCS from distgit
-        
-        name = self._ensure_key_or(component, 'name', self._url_to_projname(component['src']))
-        pkgname_default = name
-
-        # tag/branch defaults
-        if component.get('tag') is None:
-            component['branch'] = component.get('branch', 'master')
+        src = component.get('src')
+        if src is None:
+            fatal("Component {0} is missing 'src'")
 
         spec = component.get('spec')
         if spec is not None:
@@ -96,11 +86,34 @@ class TaskResolve(Task):
                 pass
             else:
                 raise ValueError('Unknown spec type {0}'.format(spec))
+            
+        if src != 'distgit':
+            component['src'] = self._expand_srckey(component, 'src')
+            name = self._ensure_key_or(component, 'name', self._url_to_projname(component['src']))
+            if spec != 'internal':
+                distgit = self._ensure_key_or(component, 'distgit', {})
         else:
-            distgit = self._ensure_key_or(component, 'distgit', {})
+            del component['src']
+            distgit = component.get('distgit')
+            if distgit is None:
+                fatal("Component {0} is missing 'distgit'")
+            name = distgit.get('name')
+            if name is None:
+                fatal("Component {0} is missing 'distgit/name'")
+            self._ensure_key_or(component, 'name', name)
+
+        pkgname_default = name
+
+        # TODO support pulling VCS from distgit
+        
+        # tag/branch defaults
+        if component.get('tag') is None:
+            component['branch'] = component.get('branch', 'master')
+
+        if spec != 'internal':
             pkgname_default = self._ensure_key_or(distgit, 'name', pkgname_default)
-            distgit_src = self._ensure_key_or(distgit, 'src', 
-                                              self._distgit_prefix + ':' + distgit['name'])
+            distgit['src'] = self._ensure_key_or(distgit, 'src', 
+                                                 self._distgit_prefix + ':' + distgit['name'])
             distgit['src'] = self._expand_srckey(distgit, 'src')
 
             if distgit.get('tag') is None:
@@ -124,9 +137,11 @@ class TaskResolve(Task):
         rpm_version = upstream_tag or '0'
         rpm_version = self._strip_all_prefixes(rpm_version, ['v', component['pkgname'] + '-'])
         rpm_version = rpm_version.replace('-', '.')
-        gitdesc = upstream_rev
+        gitdesc = upstream_rev or ''
         if distgit_desc is not None:
-            gitdesc += '.' + distgit_desc.replace('-', '.')
+            if gitdesc != '':
+                gitdesc += '.'
+            gitdesc += distgit_desc.replace('-', '.')
         return [rpm_version, gitdesc]
 
     def _generate_srpm(self, component, upstream_tag, upstream_rev, upstream_co,
@@ -145,20 +160,23 @@ class TaskResolve(Task):
 
         [rpm_version, rpm_release] = self._rpm_verrel(component, upstream_tag, upstream_rev, distgit_desc)
 
-        tar_dirname = '{0}-{1}'.format(component['name'], upstream_desc)
-        tarname = tar_dirname + '.tar.gz'
-        tmp_tarpath = distgit_co + '/' + tarname
-        self._tar_czf_with_prefix(upstream_co, tar_dirname, tmp_tarpath)
+        if upstream_desc is not None:
+            tar_dirname = '{0}-{1}'.format(component['name'], upstream_desc)
+            tarname = tar_dirname + '.tar.gz'
+            tmp_tarpath = distgit_co + '/' + tarname
+            self._tar_czf_with_prefix(upstream_co, tar_dirname, tmp_tarpath)
         spec_fn = specfile.spec_fn(spec_dir=distgit_co)
         spec = specfile.Spec(distgit_co + '/' + spec_fn)
         has_zero = spec.get_tag('Source0', allow_empty=True) is not None
         source_tag = 'Source'
         if has_zero:
             source_tag += '0'
-        spec.set_tag(source_tag, tarname)
+        if upstream_desc is not None:
+            spec.set_tag(source_tag, tarname)
         spec.set_tag('Version', rpm_version)
         spec.set_tag('Release', rpm_release + '%{?dist}')
-        spec.set_setup_dirname(tar_dirname)
+        if upstream_desc is not None:
+            spec.set_setup_dirname(tar_dirname)
         # Anything useful there you should find in upstream dist-git or equivalent.
         spec.delete_changelog()
         # Forcibly override
@@ -193,12 +211,16 @@ class TaskResolve(Task):
         hardlink_or_copy(distgit_co + '/' + srpm, self.snapshotdir + '/' + target)
 
     def _ensure_srpm(self, component):
-        upstream_src = component['src']
-        upstream_rev = component['revision']
-        [upstream_tag, upstream_rev] = self.mirror.describe(upstream_src, upstream_rev)
-        upstream_desc = upstream_rev
-        if upstream_tag is not None:
-            upstream_desc = upstream_tag + '-' + upstream_desc
+        upstream_src = component.get('src')
+        if upstream_src is not None:
+            upstream_rev = component['revision']
+            [upstream_tag, upstream_rev] = self.mirror.describe(upstream_src, upstream_rev)
+            upstream_desc = upstream_rev
+            if upstream_tag is not None:
+                upstream_desc = upstream_tag + '-' + upstream_desc
+        else:
+            upstream_rev = upstream_tag = upstream_desc = None
+
         distgit = component.get('distgit')
         if distgit is not None:
             distgit_src = distgit['src']
@@ -210,14 +232,19 @@ class TaskResolve(Task):
         else:
             distgit_desc = None
 
+        assert (upstream_desc or distgit_desc) is not None
+
         [rpm_version, rpm_release] = self._rpm_verrel(component, upstream_tag, upstream_rev, distgit_desc)
 
         name = "{0}-{1}-{2}.temp.src.rpm".format(component['pkgname'],
                                                  rpm_version, rpm_release)
         tmpdir = tempfile.mkdtemp('', 'rdgo-srpms', self.tmpdir)
         try:
-            upstream_co = tmpdir + '/' + component['name']
-            self.mirror.checkout(upstream_src, upstream_rev, upstream_co)
+            if upstream_src is not None:
+                upstream_co = tmpdir + '/' + component['name']
+                self.mirror.checkout(upstream_src, upstream_rev, upstream_co)
+            else:
+                upstream_co = None
 
             if distgit is not None:
                 distgit_co = tmpdir + '/' + 'distgit-' + distgit['name']
@@ -273,8 +300,10 @@ class TaskResolve(Task):
             self._expand_component(component)
             ref = self._one_of_keys(component, 'freeze', 'branch', 'tag')
             do_fetch = opts.fetch_all or (component['name'] in opts.fetch)
-            revision = self.mirror.mirror(component['src'], ref, fetch=do_fetch)
-            component['revision'] = revision
+            src = component.get('src')
+            if src is not None:
+                revision = self.mirror.mirror(src, ref, fetch=do_fetch)
+                component['revision'] = revision
 
             distgit = component.get('distgit')
             if distgit is not None:
