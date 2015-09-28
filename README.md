@@ -4,7 +4,7 @@ This is a tool to manage an "overlay" of packages on top of a base
 distribution, where the upstream sources come from upstream git, the
 spec files come from a "dist-git" system like Fedora uses, but the
 spec files are automatically edited to point at git repository
-commits.  
+commits.
 
 The output is a single rpm-md/yum repository.
 
@@ -17,16 +17,21 @@ fully automated service.
 
 A comparison with http://copr.fedoraproject.org/ is useful.  COPR
 could be described as "a web UI on top of mockchain using OpenStack
-for builds".  A major difference then is rpmdistro-gitoverlay just
-uses raw mock chains - it applies the same security to builds as
-regular Koji/Brew does (i.e. build inputs must be fully trusted).
+for builds".  rpmdistro-gitoverlay is a command line tool that can
+just uses raw mockchain, without involving virtualization.  This
+means build inputs must currently be fully trusted.
 
-COPR takes SRPMs as input - there are other projects to do the 
-`git -> SRPM` stage, whereas rpmdistro-gitoverlay does that internally.
-
-COPR is also a service with both a UI and an API, whereas
-rpmdistro-gitoverlay is designed with its sole input to be a YAML
-file, stored in a git repository.  
+ - COPR includes a web interface, a web API, authentication, etc.
+   rpmdistro-gitoverlay is just a command line tool - you can
+   use Buildbot/Jenkins/etc. to provide a UI.
+ - COPR uses OpenStack, rpmdistro-gitoverlay requires you to
+   "bring your own" virtualization for security.
+ - COPR operates principally on source RPMs; you bring your
+   own "git -> SRPM" solution.  rpmdistro-gitoverlay is
+   a hardcoded "git -> SRPM" mechanism.
+ - COPR is stateful; what is built is a function of the history of
+   build invocations.  rpmdistro-gitoverlay takes as input a YAML
+   file, and will synchronize state to it.  See below.
 
 ### State synchronization
 
