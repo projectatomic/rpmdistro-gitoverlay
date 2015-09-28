@@ -82,31 +82,35 @@ source will also drop out of the generated repository.
       buildserial: 0
     
     components:
-      - src: gnome:ostree
-    
-      - src: github:hughsie/libhif
-        freeze: 07fb582c331773ea8ee60513d8ee74f592a7eab9
-        distgit: 
-          name: libhif
-          patches: drop
-    
-      - src: github:projectatomic/rpm-ostree
+      - src: github:coreos/etcd
+
+      - src: github:russross/blackfriday
+        # What's in the Fedora rawihde specfile as of 20150716;
+	# this is how you can pin to specific upstream commits
+        tag: 77efab57b2f74dd3f9051c79752b2e8995c8b789
         distgit:
-          name: rpm-ostree
-          patches: drop
+          name: golang-github-russross-blackfriday
+
+      - src: github:rhatdan/docker
+        branch: fedora-1.9
+        distgit:
+	  # This is a bit of a hack, necessary to retrieve multiple sources
+          prep-command: fedpkg --dist=f23 sources
 
 ## Running
 
 Create a working directory where the primary data `src/` and `rpms/`
 will be stored, and copy your `overlay.yml` in there (or symlink it to
-a git checkout):
+a git checkout).  Then run `init`:
 
     mkdir -p /srv/build
     ln -s ~walters/src/fedora-atomic/overlay.yml .
+    rpmdistro-gitoverlay init
 
-Now, we perform a `resolve`: This will generate a `src/` directory
-which is a git mirror of all inputs (recursively mirroring
-submodules), and take a snapshot of exact commits into `snapshot.json`
+That finishes the one-time initialization work.  Now, we perform a
+`resolve`: This will generate a `src/` directory which is a git mirror
+of all inputs (recursively mirroring submodules), and take a snapshot
+of exact commits into `snapshot.json`
 
     rpmdistro-gitoverlay resolve --fetch-all
     ls -al snapshot.json
