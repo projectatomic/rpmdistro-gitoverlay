@@ -246,7 +246,11 @@ class TaskResolve(Task):
                 upstream_co = None
 
             if distgit is not None:
-                distgit_co = tmpdir + '/' + 'distgit-' + distgit['name']
+                distgit_topdir = tmpdir + '/' + 'distgit'
+                ensure_clean_dir(distgit_topdir)
+                # Create a directory whose name matches the module
+                # name, which helps fedpkg/rhpkg.
+                distgit_co = distgit_topdir + '/' + distgit['name']
                 self.mirror.checkout(distgit_src, distgit_rev, distgit_co)
             else:
                 shutil.copy2(upstream_co + '/' + component['pkgname'] + '.spec', tmpdir)
