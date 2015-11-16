@@ -19,12 +19,19 @@
 
 import os
 import json
+import pwd
+import collections
 import argparse
+import ConfigParser
 import subprocess
 import shutil
 import yaml
 import tempfile
 import copy
+
+import pyrpkg
+from pyrpkg.cli import cliClient
+from pyrpkg.sources import SourcesFile
 
 from .utils import log, fatal, ensuredir, rmrf, ensure_clean_dir, run_sync, hardlink_or_copy
 from .task import Task
@@ -38,6 +45,19 @@ def require_key(conf, key):
         fatal("Missing config key {0}".format(key))
 
 class TaskResolve(Task):
+    def __init__(self):
+        Task.__init__(self)
+        self._valid_source_htypes = ['md5']
+
+    def _get_rpkg(self, cwd):
+        rpkgconfig = ConfigParser.SafeConfigParser()
+        rpkgconfig.read('/etc/rpkg/fedpkg.conf')
+        rpkgconfig.add_section(os.path.basename(cwd))
+        rpkg = cliClient(rpkgconfig, 'fedpkg')
+        rpkg.do_imports(site='fedpkg')
+        rpkg.args = rpkg.parser.parse_args(['--path=' + cwd, 'sources'])
+        return rpkg
+        
     def _url_to_projname(self, url):
         rcolon = url.rfind(':')
         rslash = url.rfind('/')
@@ -193,9 +213,42 @@ class TaskResolve(Task):
         for v in ['_sourcedir', '_specdir', '_builddir',
                   '_srcrpmdir', '_rpmdir']:
             rpmbuild_argv.extend(['--define', '%' + v + ' ' + distgit_co])
+        sources_path = distgit_co + '/sources'
+        if os.path.exists(sources_path):
+            rpkg = self._get_rpkg(distgit_co)
+            srcfile = SourcesFile(sources_path, rpkg.cmd.source_entry_type)
+            for entry in srcfile.entries:
+                # For now, enforce this due to paranoia about potential unsafe
+                # code paths.
+                if entry.hashtype not in self._valid_source_htypes:
+                    fatal('Invalid hash type {0}'.format(entry.hashtype))
+                hashtypepath = self.lookaside_mirror + '/' + entry.hashtype
+                ensuredir(hashtypepath)
+
+                # Sanity check
+                assert '/' not in entry.hash
+                assert '/' not in entry.file
+
+                hashprefixpath = hashtypepath + '/' + entry.hash[0:2]
+                ensuredir(hashprefixpath)
+                objectpath = hashprefixpath + '/' + entry.hash[2:]
+
+                objectpath_tmp = objectpath + '.tmp'
+                rmrf(objectpath_tmp)
+
+                if not os.path.exists(objectpath):
+                    print("Downloading source object for {0}: {1}".format(distgit['name'], entry.file))
+                    rpkg.cmd.lookasidecache.download(distgit['name'],
+                                                     entry.file, entry.hash,
+                                                     objectpath_tmp,
+                                                     hashtype=entry.hashtype)
+                    os.rename(objectpath_tmp, objectpath)
+                else:
+                    print("Reusing cached source object for {0}: {1}".format(distgit['name'], entry.file))
+                hardlink_or_copy(objectpath, distgit_co + '/' + entry.file)
+            
         if prep_cmd is not None:
-            print("Executing preparation command")
-            run_sync(prep_cmd, cwd=distgit_co, shell=True)
+            print("NOTICE: prep-cmd is now ignored")
         rpmbuild_argv.extend(['-bs', spec_fn])
         run_sync(rpmbuild_argv, cwd=distgit_co)
         srpms = []
@@ -286,12 +339,15 @@ class TaskResolve(Task):
             fatal("Missing src/ directory; run 'rpmdistro-gitoverlay init'?")
 
         self.mirror = GitMirror(self.workdir + '/src')
+        self.lookaside_mirror = self.workdir + '/src/lookaside'
         self.tmpdir = opts.tempdir
 
         self.old_snapshotdir = self.workdir + '/old-snapshot'
         self.snapshotdir = self.workdir + '/snapshot'
         self.tmp_snapshotdir = self.snapshotdir + '.tmp'
         ensure_clean_dir(self.tmp_snapshotdir)
+
+        ensuredir(self.lookaside_mirror)
 
         ovlpath = self.workdir + '/overlay.yml'
         with open(ovlpath) as f:
