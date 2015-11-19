@@ -38,7 +38,8 @@ import re
 
 import mockbuild.util
 
-from .utils import run_sync
+from . import specfile 
+from .utils import ensuredir, run_sync, rmrf
 
 # all of the variables below are substituted by the build system
 __VERSION__ = "unreleased_version"
@@ -50,8 +51,6 @@ MOCKCONFDIR = os.path.join(SYSCONFDIR, "mock")
 
 # This variable is global as it's set by `eval`ing the mock config file =(
 config_opts = {}
-
-mockconfig_path = '/etc/mock'
 
 def log(msg):
     print(msg)
@@ -148,7 +147,7 @@ class MockChain(object):
         self._config_path = None
 
         global config_opts
-        config_opts = mockbuild.util.load_config(mockconfig_path, self.root, None, __VERSION__, PKGPYTHONDIR)
+        config_opts = mockbuild.util.load_config('/etc/mock', self.root, None, __VERSION__, PKGPYTHONDIR)
 
         tmp_prefix = os.getlogin()
         pid = os.getpid()
@@ -167,38 +166,49 @@ class MockChain(object):
         log("config dir: %s" % self._config_path)
 
         # Generate a new config
-        my_mock_config = os.path.join(self._config_path, "{0}.cfg".format(config_opts['chroot_name']))
-        add_local_repo(config_opts['config_file'], my_mock_config, 'file://' + self.local_repo, 'local_build_repo')
+        self._mockcfg_path = os.path.join(self._config_path, "{0}.cfg".format(config_opts['chroot_name']))
+        add_local_repo(config_opts['config_file'], self._mockcfg_path, 'file://' + self.local_repo, 'local_build_repo')
 
         # these files needed from the mock.config dir to make mock run
         for fn in ['site-defaults.cfg', 'logging.ini']:
-            pth = mockconfig_path + '/' + fn
+            pth = '/etc/mock/' + fn
             shutil.copyfile(pth, self._config_path + '/' + fn)
 
         # createrepo on it
         createrepo(self.local_repo)
 
+    def add_repo(self, url):
+        add_local_repo(config_opts['config_file'], self._mockcfg_path, url)
+
     def _get_mock_base_argv(self):
         return ['/usr/bin/mock',
                 '--configdir', self._config_path,
-                '--uniqueext', self._uniqueext, '-r', self.root]
+                '--uniqueext', self._uniqueext, '-r', self._mockcfg_path]
+
+    def _run_mock_sync(self, *argv):
+        argv = self._get_mock_base_argv() + list(argv)
+        run_sync(argv)
 
     def do_clean_root(self):
-        mockcmd = self._get_mock_base_argv()
-        mockcmd.extend(['--clean'])
-        run_sync(mockcmd)
+        self._run_mock_sync('--clean')
 
     def do_one_build(self, pkg):
         # returns 0, cmd, out, err = failure
         # returns 1, cmd, out, err  = success
         # returns 2, None, None, None = already built
 
-        s_pkg = os.path.basename(pkg)
-        pdn = s_pkg.replace('.temp.src.rpm', '')
+        is_srcsnap = pkg.endswith('/')
+
+        if is_srcsnap:
+            pdn = os.path.basename(pkg.replace('.srcsnap/', ''))
+            srpm = None
+        else:
+            pdn = os.path.basename(pkg).replace('.temp.src.rpm', '')
+            srpm = pkg
         resdir = '%s/%s' % (self.local_repo, pdn)
         resdir = os.path.normpath(resdir)
-        if not os.path.exists(resdir):
-            os.makedirs(resdir)
+        resdir_src = resdir + '/srpm'
+        ensuredir(resdir_src)
 
         success_file = resdir + '/success'
         fail_file = resdir + '/fail'
@@ -210,13 +220,30 @@ class MockChain(object):
         if os.path.exists(fail_file):
             os.unlink(fail_file)
 
+        if is_srcsnap:
+            pkgdir = pkg[:-1]
+            spec_fn = pkg + '/' + specfile.spec_fn(spec_dir=pkg)
+            self._run_mock_sync('--old-chroot',
+                                '--yum',
+                                '--buildsrpm',
+                                '--spec', spec_fn,
+                                '--sources', pkgdir,
+                                '--resultdir', resdir_src,
+                                '--no-cleanup-after')
+            for n in os.listdir(resdir_src):
+                if n.endswith('.src.rpm'):
+                    srpm = resdir_src + '/' + n
+                    break
+            if srpm is None:
+                fatal("Failed to find .src.rpm in {0}".format(resdir_src))
+            self.do_clean_root()
+
         mockcmd = self._get_mock_base_argv()
         mockcmd.extend(['--nocheck', # Tests should run after builds
                         '--yum',
                         '--resultdir', resdir,
                         '--no-cleanup-after'])
-
-        mockcmd.append(pkg)
+        mockcmd.append(srpm)
         print('Executing: {0}'.format(subprocess.list2cmdline(mockcmd)))
         cmd = subprocess.Popen(mockcmd,
                stdout=subprocess.PIPE,
@@ -225,10 +252,18 @@ class MockChain(object):
         success = cmd.returncode == 0
         postprocess_mock_resultdir(resdir, success)
 
+        if success:
+            if not 'PRESERVE_TEMP' in os.environ:
+                rmrf(srpm)
+
         ret = 1 if success else 0
         return ret, cmd, out, err
 
     def build(self, pkgs):
+        for pkg in pkgs:
+            if not pkg.endswith(('.src.rpm', '/')):
+                fatal("%s doesn't appear to be an rpm or srcsnap directory - skipping" % pkg)
+
         downloaded_pkgs = {}
         built_pkgs = []
         try_again = True
@@ -239,11 +274,6 @@ class MockChain(object):
             num_of_tries += 1
             failed = []
             for pkg in to_be_built:
-                if not pkg.endswith('.rpm'):
-                    log("%s doesn't appear to be an rpm - skipping" % pkg)
-                    failed.append(pkg)
-                    continue
-
                 log("Start build: %s" % pkg)
                 ret, cmd, out, err = self.do_one_build(pkg)
                 log("End build: %s" % pkg)

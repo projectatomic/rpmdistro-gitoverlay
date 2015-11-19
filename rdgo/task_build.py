@@ -137,12 +137,10 @@ class TaskBuild(Task):
                     subprocess.check_call(['cp', '-al', oldrpmdir, newrpmdir])
                     newcache[distgit_name] = cachedstate
                     continue
-            srpm = component['srpm']
-            assert srpm.endswith('.temp.src.rpm')
-            srpm_version = srpm[:-len('.temp.src.rpm')]
+            srcsnap = component['srcsnap']
             newcache[distgit_name] = {'hashv0': component_hash,
-                                      'dirname': srpm_version}
-            pkglist.append(self.snapshotdir + '/' + srpm)
+                                      'dirname': srcsnap.replace('.srcsnap','')}
+            pkglist.append(self.snapshotdir + '/' + srcsnap + '/')
             need_build = True
             need_createrepo = True
 
