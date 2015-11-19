@@ -24,6 +24,7 @@ import collections
 import argparse
 import ConfigParser
 import subprocess
+import errno
 import shutil
 import yaml
 import tempfile
@@ -458,7 +459,11 @@ done
             subprocess.call(['cmp', '-s', snapshot_path, snapshot_tmppath]) == 0):
             changed = False
         if changed:
-            os.rename(self.snapshotdir, self.old_snapshotdir)
+            try:
+                os.rename(self.snapshotdir, self.old_snapshotdir)
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
             os.rename(self.tmp_snapshotdir, self.snapshotdir)
             log("Wrote: " + self.snapshotdir)
             if opts.touch_if_changed:
