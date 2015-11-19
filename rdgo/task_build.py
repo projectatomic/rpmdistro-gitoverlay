@@ -34,7 +34,7 @@ from .swappeddir import SwappedDirectory
 from .utils import log, fatal, ensuredir, rmrf, ensure_clean_dir, run_sync, hardlink_or_copy
 from .task import Task
 from .git import GitMirror
-from .mockchain import main as mockchain_main
+from .mockchain import MockChain
 
 def require_key(conf, key):
     try:
@@ -109,8 +109,7 @@ class TaskBuild(Task):
                 contextdir = os.path.dirname(os.path.realpath(self.workdir + '/overlay.yml'))
                 root_mock = os.path.join(contextdir, root_mock)
 
-        mc_argv = ['mockchain', '--recurse', '-r', root_mock,
-                   '-l', self.newbuilddir]
+        pkglist = []
 
         oldcache_path = self.builddir.path + '/buildstate.json'
         oldcache = {}
@@ -143,13 +142,13 @@ class TaskBuild(Task):
             srpm_version = srpm[:-len('.temp.src.rpm')]
             newcache[distgit_name] = {'hashv0': component_hash,
                                       'dirname': srpm_version}
-            mc_argv.append(self.snapshotdir + '/' + srpm)
+            pkglist.append(self.snapshotdir + '/' + srpm)
             need_build = True
             need_createrepo = True
 
         if need_build:
-            log("Performing mockchain: {0}".format(subprocess.list2cmdline(mc_argv)))
-            rc = mockchain_main(mc_argv) 
+            mc = MockChain(root_mock, self.newbuilddir)
+            rc = mc.build(pkglist)
             if opts.logdir is not None:
                 ensure_clean_dir(opts.logdir)
                 self._move_logs_to_logdir(self.newbuilddir, opts.logdir)

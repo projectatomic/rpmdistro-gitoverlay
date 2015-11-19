@@ -38,6 +38,8 @@ import re
 
 import mockbuild.util
 
+from .utils import run_sync
+
 # all of the variables below are substituted by the build system
 __VERSION__ = "unreleased_version"
 SYSCONFDIR = os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "etc")
@@ -46,38 +48,20 @@ PKGPYTHONDIR = os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "moc
 MOCKCONFDIR = os.path.join(SYSCONFDIR, "mock")
 # end build system subs
 
+# This variable is global as it's set by `eval`ing the mock config file =(
+config_opts = {}
+
 mockconfig_path = '/etc/mock'
+
+def log(msg):
+    print(msg)
 
 def createrepo(path):
     if os.path.exists(path + '/repodata/repomd.xml'):
         comm = ['/usr/bin/createrepo_c', '--update', path]
     else:
         comm = ['/usr/bin/createrepo_c', path]
-    cmd = subprocess.Popen(comm,
-             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = cmd.communicate()
-    return out, err
-
-def parse_args(args):
-    parser = optparse.OptionParser('\nmockchain -r mockcfg pkg1 [pkg2] [pkg3]')
-    parser.add_option('-r', '--root', default=None, dest='chroot',
-            help="chroot config name/base to use in the mock build")
-    parser.add_option('-l', '--localrepo', default=None,
-            help="local path for the local repo, defaults to making its own")
-    parser.add_option('--recurse', default=False, action='store_true',
-            help="if more than one pkg and it fails to build, try to build the rest and come back to it")
-
-    opts, args = parser.parse_args(args)
-
-    if not opts.chroot:
-        print("You must provide an argument to -r for the mock chroot")
-        sys.exit(1)
-
-    if len(args) < 2:
-        print("You must specifiy at least 1 package to build")
-        sys.exit(1)
-
-    return opts, args
+    run_sync(comm)
 
 REPOS_ID = []
 def generate_repo_id(baseurl):
@@ -100,24 +84,23 @@ def add_local_repo(infile, destfile, baseurl, repoid=None):
        baseurl = baseurl of repo you wish to add"""
     global config_opts
 
-    try:
-        # What's going on here is we're dynamically executing the config
-        # file as code, resetting any previous modifications to the `config_opts`
-        # variable.
-        with open(infile) as f:
-            code = compile(f.read(), infile, 'exec')
-        exec(code)
+    # What's going on here is we're dynamically executing the config
+    # file as code, resetting any previous modifications to the `config_opts`
+    # variable.
+    with open(infile) as f:
+        code = compile(f.read(), infile, 'exec')
+    exec(code)
 
-        # Add overrides to the default mock config here:
-        # Ensure we're using the priorities plugin
-        config_opts['priorities.conf'] = '\n[main]\nenabled=1\n'
-        config_opts['yum.conf'] = config_opts['yum.conf'].replace('[main]\n', '[main]\nplugins=1\n')
+    # Add overrides to the default mock config here:
+    # Ensure we're using the priorities plugin
+    config_opts['priorities.conf'] = '\n[main]\nenabled=1\n'
+    config_opts['yum.conf'] = config_opts['yum.conf'].replace('[main]\n', '[main]\nplugins=1\n')
 
-        if not repoid:
-            repoid = generate_repo_id(baseurl)
-        else:
-            REPOS_ID.append(repoid)
-        localyumrepo = """
+    if not repoid:
+        repoid = generate_repo_id(baseurl)
+    else:
+        REPOS_ID.append(repoid)
+    localyumrepo = """
 [%s]
 name=%s
 baseurl=%s
@@ -127,28 +110,11 @@ metadata_expire=30
 cost=1
 priority=1
 """ % (repoid, baseurl, baseurl)
-
-        config_opts['yum.conf'] += localyumrepo
-        br_dest = open(destfile, 'w')
-        for k, v in list(config_opts.items()):
-            br_dest.write("config_opts[%r] = %r\n" % (k, v))
-        br_dest.close()
-        return True, ''
-    except (IOError, OSError):
-        return False, "Could not write mock config to %s" % destfile
-
-    return True, ''
-
-def get_mock_base_argv(opts, cfg):
-   return ['/usr/bin/mock',
-           '--configdir', opts.config_path,
-           '--uniqueext', opts.uniqueext,
-           '-r', cfg]
-
-def do_clean_root(opts, cfg, pkg):
-    mockcmd = get_mock_base_argv(opts, cfg)
-    mockcmd.extend(['--clean'])
-    subprocess.check_call(mockcmd)
+    config_opts['yum.conf'] += localyumrepo
+    br_dest = open(destfile, 'w')
+    for k, v in list(config_opts.items()):
+        br_dest.write("config_opts[%r] = %r\n" % (k, v))
+    br_dest.close()
 
 def postprocess_mock_resultdir(resdir, success):
     statelog = resdir + '/state.log'
@@ -174,169 +140,155 @@ def postprocess_mock_resultdir(resdir, success):
     with open(resdir + '/status.json', 'w') as f:
         json.dump({'status': status}, f)
 
-def do_build(opts, cfg, pkg):
+class MockChain(object):
+    def __init__(self, root, local_repo):
+        self.root = root
+        self.local_repo = local_repo
 
-    # returns 0, cmd, out, err = failure
-    # returns 1, cmd, out, err  = success
-    # returns 2, None, None, None = already built
+        self._config_path = None
 
-    s_pkg = os.path.basename(pkg)
-    pdn = s_pkg.replace('.temp.src.rpm', '')
-    resdir = '%s/%s' % (opts.local_repo_dir, pdn)
-    resdir = os.path.normpath(resdir)
-    if not os.path.exists(resdir):
-        os.makedirs(resdir)
+        global config_opts
+        config_opts = mockbuild.util.load_config(mockconfig_path, self.root, None, __VERSION__, PKGPYTHONDIR)
 
-    success_file = resdir + '/success'
-    fail_file = resdir + '/fail'
+        tmp_prefix = os.getlogin()
+        pid = os.getpid()
+        self._uniqueext = '%s-%s' % (tmp_prefix, pid)
 
-    if os.path.exists(success_file):
-        return 2, None, None, None
+        self._local_tmp_dir = tempfile.mkdtemp('mockchain')
 
-    # clean it up if we're starting over :)
-    if os.path.exists(fail_file):
-        os.unlink(fail_file)
+        if not os.path.exists(self.local_repo):
+            os.makedirs(self.local_repo, mode=0o755)
 
-    mockcmd = get_mock_base_argv(opts, cfg)
-    mockcmd.extend(['--nocheck', # Tests should run after builds
-                    '--yum',
-                    '--resultdir', resdir,
-                    '--no-cleanup-after'])
+        log("results dir: %s" % self.local_repo)
+        self._config_path = os.path.normpath(self._local_tmp_dir + '/configs/' + config_opts['chroot_name'] + '/')
 
-    mockcmd.append(pkg)
-    print('Executing: {0}'.format(subprocess.list2cmdline(mockcmd)))
-    cmd = subprocess.Popen(mockcmd,
-           stdout=subprocess.PIPE,
-           stderr=subprocess.PIPE)
-    out, err = cmd.communicate()
-    success = cmd.returncode == 0
-    postprocess_mock_resultdir(resdir, success)
+        if not os.path.exists(self._config_path):
+            os.makedirs(self._config_path, mode=0o755)
+        log("config dir: %s" % self._config_path)
 
-    ret = 1 if success else 0
-    return ret, cmd, out, err
+        # Generate a new config
+        my_mock_config = os.path.join(self._config_path, "{0}.cfg".format(config_opts['chroot_name']))
+        add_local_repo(config_opts['config_file'], my_mock_config, 'file://' + self.local_repo, 'local_build_repo')
 
+        # these files needed from the mock.config dir to make mock run
+        for fn in ['site-defaults.cfg', 'logging.ini']:
+            pth = mockconfig_path + '/' + fn
+            shutil.copyfile(pth, self._config_path + '/' + fn)
 
-def log(msg):
-    print(msg)
+        # createrepo on it
+        createrepo(self.local_repo)
 
-config_opts = {}
+    def _get_mock_base_argv(self):
+        return ['/usr/bin/mock',
+                '--configdir', self._config_path,
+                '--uniqueext', self._uniqueext, '-r', self.root]
 
-def main(args):
-    opts, args = parse_args(args)
-    # take mock config + list of pkgs
-    cfg = opts.chroot
-    pkgs = args[1:]
+    def do_clean_root(self):
+        mockcmd = self._get_mock_base_argv()
+        mockcmd.extend(['--clean'])
+        run_sync(mockcmd)
 
-    global config_opts
-    config_opts = mockbuild.util.load_config(mockconfig_path, cfg, None, __VERSION__, PKGPYTHONDIR)
+    def do_one_build(self, pkg):
+        # returns 0, cmd, out, err = failure
+        # returns 1, cmd, out, err  = success
+        # returns 2, None, None, None = already built
 
-    tmp_prefix = os.getlogin()
-    pid = os.getpid()
-    opts.uniqueext = '%s-%s' % (tmp_prefix, pid)
+        s_pkg = os.path.basename(pkg)
+        pdn = s_pkg.replace('.temp.src.rpm', '')
+        resdir = '%s/%s' % (self.local_repo, pdn)
+        resdir = os.path.normpath(resdir)
+        if not os.path.exists(resdir):
+            os.makedirs(resdir)
 
-    local_tmp_dir = tempfile.mkdtemp('mockchain')
+        success_file = resdir + '/success'
+        fail_file = resdir + '/fail'
 
-    opts.local_repo_dir = opts.localrepo
+        if os.path.exists(success_file):
+            return 2, None, None, None
 
-    if not os.path.exists(opts.local_repo_dir):
-        os.makedirs(opts.local_repo_dir, mode=0o755)
+        # clean it up if we're starting over :)
+        if os.path.exists(fail_file):
+            os.unlink(fail_file)
 
-    local_baseurl = "file://%s" % opts.local_repo_dir
-    log("results dir: %s" % opts.local_repo_dir)
-    opts.config_path = os.path.normpath(local_tmp_dir + '/configs/' + config_opts['chroot_name'] + '/')
+        mockcmd = self._get_mock_base_argv()
+        mockcmd.extend(['--nocheck', # Tests should run after builds
+                        '--yum',
+                        '--resultdir', resdir,
+                        '--no-cleanup-after'])
 
-    if not os.path.exists(opts.config_path):
-        os.makedirs(opts.config_path, mode=0o755)
+        mockcmd.append(pkg)
+        print('Executing: {0}'.format(subprocess.list2cmdline(mockcmd)))
+        cmd = subprocess.Popen(mockcmd,
+               stdout=subprocess.PIPE,
+               stderr=subprocess.PIPE)
+        out, err = cmd.communicate()
+        success = cmd.returncode == 0
+        postprocess_mock_resultdir(resdir, success)
 
-    log("config dir: %s" % opts.config_path)
+        ret = 1 if success else 0
+        return ret, cmd, out, err
 
-    my_mock_config = os.path.join(opts.config_path, "{0}.cfg".format(config_opts['chroot_name']))
+    def build(self, pkgs):
+        downloaded_pkgs = {}
+        built_pkgs = []
+        try_again = True
+        to_be_built = pkgs
+        return_code = 0
+        num_of_tries = 0
+        while try_again:
+            num_of_tries += 1
+            failed = []
+            for pkg in to_be_built:
+                if not pkg.endswith('.rpm'):
+                    log("%s doesn't appear to be an rpm - skipping" % pkg)
+                    failed.append(pkg)
+                    continue
 
-    # modify with localrepo
-    res, msg = add_local_repo(config_opts['config_file'], my_mock_config, local_baseurl, 'local_build_repo')
-    if not res:
-        log("Error: Could not write out local config: %s" % msg)
-        sys.exit(1)
+                log("Start build: %s" % pkg)
+                ret, cmd, out, err = self.do_one_build(pkg)
+                log("End build: %s" % pkg)
+                if ret == 0:
+                    failed.append(pkg)
+                    log("Error building %s." % os.path.basename(pkg))
+                    log("Will try to build again (if some other package will succeed).")
+                    self.do_clean_root()
+                elif ret == 1:
+                    log("Success building %s" % os.path.basename(pkg))
+                    self.do_clean_root()
+                    built_pkgs.append(pkg)
+                    # createrepo with the new pkgs
+                    createrepo(self.local_repo)
+                elif ret == 2:
+                    log("Skipping already built pkg %s" % os.path.basename(pkg))
 
-    # these files needed from the mock.config dir to make mock run
-    for fn in ['site-defaults.cfg', 'logging.ini']:
-        pth = mockconfig_path + '/' + fn
-        shutil.copyfile(pth, opts.config_path + '/' + fn)
-
-    # createrepo on it
-    out, err = createrepo(opts.local_repo_dir)
-    if err.strip():
-        log("Error making local repo: %s" % opts.local_repo_dir)
-        log("Err: %s" % err)
-        sys.exit(1)
-
-
-    downloaded_pkgs = {}
-    built_pkgs = []
-    try_again = True
-    to_be_built = pkgs
-    return_code = 0
-    num_of_tries = 0
-    while try_again:
-        num_of_tries += 1
-        failed = []
-        for pkg in to_be_built:
-            if not pkg.endswith('.rpm'):
-                log("%s doesn't appear to be an rpm - skipping" % pkg)
-                failed.append(pkg)
-                continue
-
-            log("Start build: %s" % pkg)
-            ret, cmd, out, err = do_build(opts, config_opts['chroot_name'], pkg)
-            log("End build: %s" % pkg)
-            if ret == 0:
-                failed.append(pkg)
-                log("Error building %s." % os.path.basename(pkg))
-                log("Will try to build again (if some other package will succeed).")
-                do_clean_root(opts, config_opts['chroot_name'], pkg)
-            elif ret == 1:
-                log("Success building %s" % os.path.basename(pkg))
-                do_clean_root(opts, config_opts['chroot_name'], pkg)
-                built_pkgs.append(pkg)
-                # createrepo with the new pkgs
-                out, err = createrepo(opts.local_repo_dir)
-                if err.strip():
-                    log("Error making local repo: %s" % opts.local_repo_dir)
-                    log("Err: %s" % err)
-            elif ret == 2:
-                log("Skipping already built pkg %s" % os.path.basename(pkg))
-
-        if failed:
-            if len(failed) != len(to_be_built):
-                to_be_built = failed
-                try_again = True
-                log('Some package succeeded, some failed.')
-                log('Trying to rebuild %s failed pkgs, because --recurse is set.' % len(failed))
-            else:
-                log("Tried %s times - following pkgs could not be successfully built:" % num_of_tries)
-                for pkg in failed:
-                    msg = pkg
-                    if pkg in downloaded_pkgs:
-                        msg = downloaded_pkgs[pkg]
-                    log(msg)
-                try_again = False
-                return_code = 2
-        else:
-            try_again = False
             if failed:
-                return_code = 2
+                if len(failed) != len(to_be_built):
+                    to_be_built = failed
+                    try_again = True
+                    log('Some package succeeded, some failed.')
+                    log('Trying to rebuild %s failed pkgs, because --recurse is set.' % len(failed))
+                else:
+                    log("Tried %s times - following pkgs could not be successfully built:" % num_of_tries)
+                    for pkg in failed:
+                        msg = pkg
+                        if pkg in downloaded_pkgs:
+                            msg = downloaded_pkgs[pkg]
+                        log(msg)
+                    try_again = False
+                    return_code = 2
+            else:
+                try_again = False
+                if failed:
+                    return_code = 2
 
-    log("Results out to: %s" % opts.local_repo_dir)
-    log("Pkgs built: %s" % len(built_pkgs))
-    if built_pkgs:
-        if failed:
-            if len(built_pkgs):
-                log("Some packages successfully built in this order:")
-        else:
-            log("Packages successfully built in this order:")
-        for pkg in built_pkgs:
-            log(pkg)
-    return return_code
-
-if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+        log("Results out to: %s" % self.local_repo)
+        log("Pkgs built: %s" % len(built_pkgs))
+        if built_pkgs:
+            if failed:
+                if len(built_pkgs):
+                    log("Some packages successfully built in this order:")
+            else:
+                log("Packages successfully built in this order:")
+            for pkg in built_pkgs:
+                log(pkg)
+        return return_code
