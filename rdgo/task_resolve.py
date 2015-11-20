@@ -101,6 +101,9 @@ class TaskResolve(Task):
         return None
 
     def _expand_component(self, component):
+        for key in component:
+            if key not in ['src', 'spec', 'distgit', 'tag', 'branch', 'freeze']:
+                fatal("Unknown key {0} in component: {1}".format(key, component))
         # 'src' and 'distgit' mappings
         src = component.get('src')
         if src is None:
@@ -118,6 +121,8 @@ class TaskResolve(Task):
             name = self._ensure_key_or(component, 'name', self._url_to_projname(component['src']))
             if spec != 'internal':
                 distgit = self._ensure_key_or(component, 'distgit', {})
+            else:
+                distgit = {}
         else:
             del component['src']
             distgit = component.get('distgit')
@@ -144,6 +149,10 @@ class TaskResolve(Task):
 
             if distgit.get('tag') is None:
                 distgit['branch'] = distgit.get('branch', 'master')
+
+        for key in distgit:
+            if key not in ['patches', 'src', 'name', 'tag', 'branch', 'freeze']:
+                fatal("Unknown key {0} in component/distgit: {1}".format(key, component))
 
         self._ensure_key_or(component, 'pkgname', pkgname_default)
 
