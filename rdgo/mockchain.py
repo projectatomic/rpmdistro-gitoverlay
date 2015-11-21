@@ -280,8 +280,12 @@ class MockChain(object):
                 if ret == 0:
                     failed.append(pkg)
                     log("Error building %s." % os.path.basename(pkg))
-                    log("Will try to build again (if some other package will succeed).")
-                    self.do_clean_root()
+                    if len(pkgs) > 1:
+                        log("Will try to build again (if some other package will succeed).")
+                        self.do_clean_root()
+                    else:
+                        if not 'PRESERVE_TEMP' in os.environ:
+                            self.do_clean_root()
                 elif ret == 1:
                     log("Success building %s" % os.path.basename(pkg))
                     self.do_clean_root()
