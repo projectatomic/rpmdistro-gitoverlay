@@ -50,6 +50,7 @@ class TaskResolve(Task):
         Task.__init__(self)
         self._srpm_mock_initialized = None
         self._valid_source_htypes = ['md5']
+        self._tmpdir = None
 
     def _get_rpkg(self, distgit, cwd):
         rpkgconfig = ConfigParser.SafeConfigParser()
@@ -151,7 +152,7 @@ class TaskResolve(Task):
                 distgit['branch'] = distgit.get('branch', 'master')
 
         for key in distgit:
-            if key not in ['patches', 'src', 'name', 'tag', 'branch', 'freeze']:
+            if key not in ['patches', 'src', 'name', 'tag', 'branch', 'freeze', 'sources']:
                 fatal("Unknown key {0} in component/distgit: {1}".format(key, component))
 
         self._ensure_key_or(component, 'pkgname', pkgname_default)
@@ -260,6 +261,23 @@ class TaskResolve(Task):
 
         shutil.move(distgit_co, self.tmp_snapshotdir + '/' + target)
 
+    def _tmpdir(self):
+        if self._tmpdir is not None:
+            return self._tmpdir
+        self._tmpdir = tempfile.mkdtemp('', 'rdgo-srpms', self.top_tmpdir)
+
+    def _distgit_checkout(self, component):
+        distgit = component.get('distgit')
+        assert distgit is not None
+        distgit_topdir = self._tmpdir() + '/' + 'distgit'
+        distgit_co = distgit_topdir + '/' + distgit['name']
+        if not os.path.isdir(distgit_co):
+            ensure_clean_dir(distgit_topdir)
+            # Create a directory whose name matches the module
+            # name, which helps fedpkg/rhpkg.
+            self.mirror.checkout(distgit_src, distgit_rev, distgit_co)
+        return distgit_co
+
     def _generate_srcsnap(self, component):
         upstream_src = component.get('src')
         if upstream_src is not None:
@@ -287,34 +305,24 @@ class TaskResolve(Task):
         [rpm_version, rpm_release] = self._rpm_verrel(component, upstream_tag, upstream_rev, distgit_desc)
 
         srcsnap_name = "{0}-{1}-{2}.srcsnap".format(component['pkgname'], rpm_version, rpm_release)
-        tmpdir = tempfile.mkdtemp('', 'rdgo-srpms', self.tmpdir)
-        try:
-            if upstream_src is not None:
-                upstream_co = tmpdir + '/' + component['name']
-                self.mirror.checkout(upstream_src, upstream_rev, upstream_co)
-            else:
-                upstream_co = None
+        if upstream_src is not None:
+            upstream_co = self._tmpdir + '/' + component['name']
+            self.mirror.checkout(upstream_src, upstream_rev, upstream_co)
+        else:
+            upstream_co = None
 
-            if distgit is not None:
-                distgit_topdir = tmpdir + '/' + 'distgit'
-                ensure_clean_dir(distgit_topdir)
-                # Create a directory whose name matches the module
-                # name, which helps fedpkg/rhpkg.
-                distgit_co = distgit_topdir + '/' + distgit['name']
-                self.mirror.checkout(distgit_src, distgit_rev, distgit_co)
-            else:
-                shutil.copy2(upstream_co + '/' + component['pkgname'] + '.spec', tmpdir)
-                distgit_co = tmpdir
+        if distgit is not None:
+            distgit_co = self._distgit_checkout(component)
+        else:
+            shutil.copy2(upstream_co + '/' + component['pkgname'] + '.spec', tmpdir)
+            distgit_co = self._tmpdir
 
-            self._generate_srcsnap_impl(component, upstream_tag, upstream_rev, upstream_co,
-                                        distgit_desc, distgit_co,
-                                        srcsnap_name)
-        finally:
-            if not 'PRESERVE_TEMP' in os.environ:
-                rmrf(tmpdir)
+        self._generate_srcsnap_impl(component, upstream_tag, upstream_rev, upstream_co,
+                                    distgit_desc, distgit_co,
+                                    srcsnap_name)
         return srcsnap_name
 
-    def run(self, argv):
+    def _run_with_tmpdir(self, argv):
         parser = argparse.ArgumentParser(description="Create snapshot.json")
         parser.add_argument('--tempdir', action='store', default=None,
                             help='Path to directory for temporary working files')
@@ -332,7 +340,7 @@ class TaskResolve(Task):
 
         self.mirror = GitMirror(self.workdir + '/src')
         self.lookaside_mirror = self.workdir + '/src/lookaside'
-        self.tmpdir = opts.tempdir
+        self.top_tmpdir = opts.tempdir
 
         self.old_snapshotdir = self.workdir + '/old-snapshot'
         self.snapshotdir = self.workdir + '/snapshot'
@@ -379,6 +387,26 @@ class TaskResolve(Task):
                 revision = self.mirror.mirror(distgit['src'], ref, fetch=do_fetch)
                 distgit['revision'] = revision
 
+                distgit_co = self._distgit_checkout(component)
+                spec_fn = specfile.spec_fn(spec_dir=distgit_co)
+                spec = specfile.Spec(distgit_co + '/' + spec_fn)
+
+                distgit_gitsources = spec.get_git_sources()
+                if len(distgit_gitsources) > 0:
+                    component['distgit-gitsrc'] = component_distgit_gitsrcs = []
+                    for n,gitsource in distgit_gitsources.iteritems():
+                        revision = self.mirror.mirror(gitsource.url, gitsource.commit, fetch=do_fetch)
+                        src = 
+                        distgit_one_gitsrc = {'src': gitsource.url,
+                                              'revision': revision}
+                        component_distgit_gitsrcs.append(distgit_one_gitsrc)
+
+            sources = component.get('distgit-gitsrc', [])
+            if len(sources) > 0:
+                log("Multiple git sources specified, analyzing distgit")
+                for extsourceid in sources:
+                    
+                
             srcsnap = self._generate_srcsnap(component)
             component['srcsnap'] = os.path.basename(srcsnap)
 
@@ -413,3 +441,12 @@ class TaskResolve(Task):
             rmrf(self.tmp_snapshotdir)
             log("No changes.")
                 
+    def run(self, argv):
+        try:
+            self._run_with_tmpdir(self, argv)
+        finally:
+            if (self._tmpdir is not None and
+                not 'PRESERVE_TEMP' in os.environ):
+                rmrf(self._tmpdir)
+            
+            

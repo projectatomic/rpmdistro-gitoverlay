@@ -60,6 +60,8 @@ def release_parts(release):
 def has_macros(s):
     return s.find('%{') != -1
 
+class GitSource = collections.namedtuple('GitSource', ['url', 'commit'])
+
 class Spec(object):
     """
     Lazy .spec file parser and editor.
@@ -358,6 +360,34 @@ class Spec(object):
 
     def get_source_fns(self):
         return map(os.path.basename, self.get_source_urls())
+
+    def get_git_sources(self):
+        def mkre(term):
+            "Generate a regexp matching %global TER"
+            return re.compile(re.escape('^%global ' + term) + '([0-9]+) +([^ \t]+)')
+        gitre = mkre('git')
+        commitre = mkre('commit')
+        gitsources = {}
+        gitsource_id = None
+        gitsource_git = None
+        gitsource_commit = None
+        for line in StringIO.StringIO(self._txt):
+            m = gitre.search(line)
+            if m is not None:
+                gitsource_id = int(m.group(1))
+                if gitsource_id in gitsources:
+                    raise Exception("Found duplicate %global git{0}")
+                gitsource_git = m.group(2)
+            else:
+                m = commitre.search(line)
+                if m is not None:
+                    if int(m.group(1)) != gitsource_id:
+                        raise Exception("Found %global git{0} without matching commit{0}")
+                    gitsource_commit = m.group(2)
+            if (m is not None and gitsource_git is not None and gitsource_commit is not None):
+                gitsources[gitsource_id] = GitSource(git=gitsource_git, commit=gitsource_commit)
+                gitsource_id = gitsource_git = gitsource_commit = None
+        return gitsources
 
     def get_last_changelog_entry(self, strip=False):
         _, changelog = self.txt.split("%changelog\n")
