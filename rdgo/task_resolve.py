@@ -102,7 +102,7 @@ class TaskResolve(Task):
 
     def _expand_component(self, component):
         for key in component:
-            if key not in ['src', 'spec', 'distgit', 'tag', 'branch', 'freeze']:
+            if key not in ['src', 'spec', 'distgit', 'tag', 'branch', 'freeze', 'self-buildrequires']:
                 fatal("Unknown key {0} in component: {1}".format(key, component))
         # 'src' and 'distgit' mappings
         src = component.get('src')

@@ -77,6 +77,12 @@ class TaskBuild(Task):
                     if subname.endswith(('.json', '.log')):
                         shutil.move(subpath, sublogdir + '/' + subname)
 
+    def _copy_previous_build(self, cachedstate):
+        cached_dirname = cachedstate['dirname']
+        oldrpmdir = self.builddir.path + '/' + cached_dirname
+        newrpmdir = self.newbuilddir + '/' + cached_dirname
+        subprocess.check_call(['cp', '-al', oldrpmdir, newrpmdir])
+
     def run(self, argv):
         parser = argparse.ArgumentParser(description="Build RPMs")
         parser.add_argument('--tempdir', action='store', default=None,
@@ -129,14 +135,15 @@ class TaskBuild(Task):
             distgit_name = component['pkgname']
             cachedstate = oldcache.get(distgit_name)
             if cachedstate is not None:
+                cached_dirname = cachedstate['dirname']
                 if cachedstate['hashv0'] == component_hash:
-                    cached_dirname = cachedstate['dirname']
                     log("Reusing cached build: {0}".format(cached_dirname))
-                    oldrpmdir = self.builddir.path + '/' + cached_dirname
-                    newrpmdir = self.newbuilddir + '/' + cached_dirname
-                    subprocess.check_call(['cp', '-al', oldrpmdir, newrpmdir])
+                    self._copy_previous_build(cachedstate)
                     newcache[distgit_name] = cachedstate
                     continue
+                elif component.get('self-buildrequires', False):
+                    log("Copying previous cached build for self-BR: {0}".format(cached_dirname))
+                    self._copy_previous_build(cachedstate)
             srcsnap = component['srcsnap']
             newcache[distgit_name] = {'hashv0': component_hash,
                                       'dirname': srcsnap.replace('.srcsnap','')}
