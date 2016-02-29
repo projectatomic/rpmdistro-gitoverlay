@@ -3,7 +3,7 @@
 GITREV = $$(git describe --always --tags)
 GITREV_FOR_PKG = $(shell echo "$(GITREV)" | sed -e 's,-,\.,g' -e 's,^v,,')
 
-srcdir=$(shell pwd)
+srcdir=$(shell git rev-parse --show-toplevel)
 PACKAGE=rpmdistro-gitoverlay
 
 PKG_VER = $(PACKAGE)-$(GITREV_FOR_PKG)
@@ -26,10 +26,10 @@ dist-snapshot:
 	xz $(PKG_VER).tar 
 
 srpm: dist-snapshot
-	(srcdir=$$(pwd); tmpdir=$$(mktemp -d); \
-	 sed -e "s,^Version:.*,Version: $(GITREV_FOR_PKG)," $(PACKAGE).spec > $${tmpdir}/$(PACKAGE).spec; \
-	 cp $(PKG_VER).tar.xz $${tmpdir}; \
-	 cd $${tmpdir} && ${srcdir}/rpmbuild-cwd -bs $(PACKAGE).spec)
+	(echo "Version: $(GITREV_FOR_PKG)"; \
+	 echo "Release: 1%{?dist}"; \
+	 cat $(PACKAGE).spec.in) > $(PACKAGE).spec
+	 ./rpmbuild-cwd -bs $(PACKAGE).spec
 
 rpm: srpm
-	$(srcdir)/rpmbuild-cwd --rebuild $(PKG_VER)*.src.rpm
+	./rpmbuild-cwd --rebuild $(PKG_VER)*.src.rpm
