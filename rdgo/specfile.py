@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#
 # This code was imported from rdo:
 #   https://github.com/redhat-openstack/rdopkg
 #
@@ -94,7 +92,7 @@ class Spec(object):
                          os.path.dirname(os.path.realpath(self.fn)))
             try:
                 self._rpmspec = rpm.spec(self.fn)
-            except ValueError, e:
+            except ValueError as e:
                 raise Exception("Error parsing spec: {0}".format(e))
         return self._rpmspec
 

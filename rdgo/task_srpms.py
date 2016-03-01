@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#
 # Copyright (C) 2015 Colin Walters <walters@verbum.org>
 #
 # This library is free software; you can redistribute it and/or
@@ -33,7 +31,7 @@ from .git import GitMirror
 def require_key(conf, key):
     try:
         return conf[key]
-    except KeyError, e:
+    except KeyError as e:
         fatal("Missing config key {0}".format(key))
 
 class TaskSRPMs(Task):

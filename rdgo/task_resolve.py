@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#
 # Copyright (C) 2015 Colin Walters <walters@verbum.org>
 #
 # This library is free software; you can redistribute it and/or
@@ -21,8 +19,12 @@ import os
 import json
 import pwd
 import collections
+import sys
 import argparse
-import ConfigParser
+if sys.version_info[0] < 3:
+    import ConfigParser
+else:
+    import configparser
 import subprocess
 import errno
 import shutil
@@ -42,7 +44,7 @@ from .git import GitMirror
 def require_key(conf, key):
     try:
         return conf[key]
-    except KeyError, e:
+    except KeyError as e:
         fatal("Missing config key {0}".format(key))
 
 class TaskResolve(Task):

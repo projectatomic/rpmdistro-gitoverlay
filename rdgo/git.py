@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#
 # Copyright (C) 2015 Colin Walters <walters@verbum.org>
 #
 # This library is free software; you can redistribute it and/or

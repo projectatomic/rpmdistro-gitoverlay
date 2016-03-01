@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!@PYTHON@
+#
 # Copyright (C) 2015 Colin Walters <walters@verbum.org>
 #
 # This library is free software; you can redistribute it and/or
@@ -18,13 +19,17 @@
 
 import os
 import sys
-import __builtin__
 
 if os.name == 'nt':
     datadir = os.path.join(os.path.dirname(__file__), '..', 'share')
 else:
     datadir = "@datarootdir@"
-__builtin__.__dict__['DATADIR'] = datadir
+if sys.version_info[0] < 3:
+    import __builtin__
+    __builtin__.__dict__['DATADIR'] = datadir
+else:
+    import builtins
+    builtins.__dict__['DATADIR'] = datadir
 
 # This is a private directory, we don't want to pollute the global
 # namespace.
