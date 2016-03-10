@@ -305,7 +305,23 @@ class TaskResolve(Task):
                 distgit_co = distgit_topdir + '/' + distgit['name']
                 self.mirror.checkout(distgit_src, distgit_rev, distgit_co)
             else:
-                shutil.copy2(upstream_co + '/' + component['pkgname'] + '.spec', tmpdir)
+                spec_paths = [upstream_co, upstream_co + '/packaging']
+                specbasefn = component['pkgname'] + '.spec'
+                specfn = None
+                for path in spec_paths:
+                    for name in [path + '/' + specbasefn, path + '/' + specbasefn + '.in']:
+                        if os.path.isfile(name):
+                            specfn = name
+                            break
+                    if specfn is not None:
+                        break
+                if specfn is None:
+                    fatal("Failed to find .spec (or .spec.in) file")
+                if specfn.endswith('.in'):
+                    dest_specfn = tmpdir + '/' + os.path.basename(specfn[:-3])
+                else:
+                    dest_specfn = tmpdir
+                shutil.copy2(specfn, dest_specfn)
                 distgit_co = tmpdir
 
             self._generate_srcsnap_impl(component, upstream_tag, upstream_rev, upstream_co,
