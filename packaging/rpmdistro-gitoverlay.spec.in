@@ -18,6 +18,7 @@ Requires: python-six
 Requires: rpm-build
 Requires: mock
 Requires: yum-plugin-priorities
+Requires: pyrpkg
 
 %description
 %{summary}
