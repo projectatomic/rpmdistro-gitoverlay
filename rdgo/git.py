@@ -28,6 +28,18 @@ from gi.repository import GLib, Gio
 
 from .utils import log, fatal, run_sync, rmrf, ensuredir
 
+class GitRemote(object):
+    def __init__(self, url, cacertpath=None):
+        self.url = url
+        self.cacertpath = cacertpath
+
+    def to_git_env(self):
+        env = {}
+        if self.cacertpath is not None:
+            env['GIT_SSL_CAINFO'] = self.cacertpath
+        print "using env {}".format(env)
+        return env
+
 def path_with_suffix(path, suffix):
     return os.path.dirname(path) + '/' + os.path.basename(path) + suffix
 
@@ -143,21 +155,25 @@ class GitMirror(object):
         finally:
             rmrf(tmpdir)
 
-    def mirror(self, url, branch_or_tag,
+    def mirror(self, remote, branch_or_tag,
                fetch=False, fetch_continue=False):
+        if not isinstance(remote, GitRemote):
+            remote = GitRemote(remote)
+        assert isinstance(remote, GitRemote)
+        url = remote.url
         mirrordir = self._get_mirrordir(url)
         tmp_mirror = os.path.dirname(mirrordir) + '/' + os.path.basename(mirrordir) + '.tmp'
         did_update = False
-
         
         rmrf(tmp_mirror)
         if not os.path.isdir(mirrordir):
-            self._run('clone', '--mirror', self._strip_file_url(url), tmp_mirror)
+            self._run('clone', '--mirror', self._strip_file_url(url), tmp_mirror,
+                      env=remote.to_git_env())
             self._run('config', 'gc.auto', '0', cwd=tmp_mirror)
             os.rename(tmp_mirror, mirrordir)
         elif fetch:
             sys.stdout.write(os.path.basename(mirrordir) + ': ')
-            self._run('fetch', cwd=mirrordir)
+            self._run('fetch', cwd=mirrordir, env=remote.to_git_env())
         
         rev = subprocess.check_output(['git', 'rev-parse', branch_or_tag], cwd=mirrordir).strip()
 
@@ -188,14 +204,22 @@ class GitMirror(object):
             run_sync(['git', 'submodule', 'update', '--init', module.name], cwd=checkout)
             self._process_checkout_submodules(checkout + '/' + module.name, module.url)
 
-    def checkout(self, url, branch_or_tag, dest):
+    def checkout(self, remote, branch_or_tag, dest):
+        if not isinstance(remote, GitRemote):
+            remote = GitRemote(remote)
+        assert isinstance(remote, GitRemote)
+        url = remote.url
         mirrordir = self._get_mirrordir(url)
         run_sync(['git', 'clone', '-s', '--origin', 'localmirror', mirrordir, dest])
         run_sync(['git', 'checkout', '-q', branch_or_tag], cwd=dest)
         self._process_checkout_submodules(dest, url)
         return dest
 
-    def describe(self, url, branch_or_tag):
+    def describe(self, remote, branch_or_tag):
+        if not isinstance(remote, GitRemote):
+            remote = GitRemote(remote)
+        assert isinstance(remote, GitRemote)
+        url = remote.url
         mirrordir = self._get_mirrordir(url)
         description = subprocess.check_output(['git', 'describe', '--long', '--abbrev=40', '--always', branch_or_tag],
                                               cwd=mirrordir).strip()

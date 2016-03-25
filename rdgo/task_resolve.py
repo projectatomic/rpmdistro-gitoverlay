@@ -39,7 +39,7 @@ from pyrpkg.sources import SourcesFile
 from .utils import log, fatal, ensuredir, rmrf, ensure_clean_dir, run_sync, hardlink_or_copy
 from .task import Task
 from . import specfile 
-from .git import GitMirror
+from .git import GitRemote, GitMirror
 
 def require_key(conf, key):
     try:
@@ -53,11 +53,17 @@ class TaskResolve(Task):
         self._srpm_mock_initialized = None
         self._valid_source_htypes = ['md5']
 
+    def _json_dumper(self, obj):
+        if isinstance(obj, GitRemote):
+            return obj.url
+        else:
+            return obj
+
     def _get_rpkg(self, distgit, cwd):
         rpkgconfig = ConfigParser.SafeConfigParser()
         pkgtype = 'fedpkg'
         # Yes, awful hack.
-        if distgit['src'].find('pkgs.devel.redhat.com') != -1:
+        if distgit['src'].url.find('pkgs.devel.redhat.com') != -1:
             pkgtype = 'rhpkg'
         rpkgconfig.read('/etc/rpkg/{0}.conf'.format(pkgtype))
         rpkgconfig.add_section(os.path.basename(cwd))
@@ -74,16 +80,22 @@ class TaskResolve(Task):
             return basename[0:-4]
         return basename
 
+    def _prepend_workdir(self, val):
+        if not val:
+            return None
+        return self.workdir + '/' + val
+
     def _expand_srckey(self, component, key):
-        val = component[key]
+        url = component[key]
         aliases = self._overlay.get('aliases', [])
         for alias in aliases:
             name = alias['name']
             namec = name + ':'
-            if not val.startswith(namec):
+            if not url.startswith(namec):
                 continue
-            return alias['url'] + val[len(namec):]
-        return val
+            url = alias['url'] + url[len(namec):]
+            return GitRemote(url, self._prepend_workdir(alias.get('cacertpath')))
+        return GitRemote(url)
 
     def _ensure_key_or(self, dictval, key, value):
         v = dictval.get(key)
@@ -120,7 +132,7 @@ class TaskResolve(Task):
             
         if src != 'distgit':
             component['src'] = self._expand_srckey(component, 'src')
-            name = self._ensure_key_or(component, 'name', self._url_to_projname(component['src']))
+            name = self._ensure_key_or(component, 'name', self._url_to_projname(component['src'].url))
             if spec != 'internal':
                 distgit = self._ensure_key_or(component, 'distgit', {})
             else:
@@ -407,7 +419,7 @@ class TaskResolve(Task):
         snapshot_path = self.snapshotdir + '/snapshot.json'
         snapshot_tmppath = self.tmp_snapshotdir + '/snapshot.json'
         with open(snapshot_tmppath, 'w') as f:
-            json.dump(expanded, f, indent=4, sort_keys=True)
+            json.dump(expanded, f, indent=4, sort_keys=True, default=self._json_dumper)
 
         rmrf(self.old_snapshotdir)
 
