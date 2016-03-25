@@ -148,9 +148,7 @@ class MockChain(object):
         global config_opts
         config_opts = mockbuild.util.load_config('/etc/mock', self.root, None, __VERSION__, PKGPYTHONDIR)
 
-        tmp_prefix = os.getlogin()
-        pid = os.getpid()
-        self._uniqueext = '%s-%s' % (tmp_prefix, pid)
+        self._uniqueext = 'mockchain-{}'.format(os.getpid())
 
         self._local_tmp_dir = tempfile.mkdtemp('mockchain')
 
