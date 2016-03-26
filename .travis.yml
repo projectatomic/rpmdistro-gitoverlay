@@ -4,14 +4,18 @@
 #
 # In the future we'll hook up better tests.
 language: c
-dist: trusty
 addons:
-    apt:
+  apt:
     packages:
       - automake
       - autotools-dev
+install:
+  - pip install --user pylint # The ubuntu one is ancient
 script:
   - env NOCONFIGURE=1 ./autogen.sh
+  - ./configure --prefix=/usr
+  - make -j 4
+  - env PATH=${HOME}/.local/bin:${PATH} make check
 
 notifications:
   # This is Colin's personal Homu instance.  We will
