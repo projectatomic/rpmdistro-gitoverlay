@@ -38,7 +38,7 @@ import re
 import mockbuild.util
 
 from . import specfile 
-from .utils import ensuredir, run_sync, rmrf
+from .utils import fatal, ensuredir, run_sync, rmrf
 
 # all of the variables below are substituted by the build system
 __VERSION__ = "unreleased_version"
