@@ -32,9 +32,10 @@ import yaml
 import tempfile
 import copy
 
-import pyrpkg
-from pyrpkg.cli import cliClient
-from pyrpkg.sources import SourcesFile
+# We don't have this on Travis (Ubuntu)...should probably make it optional.
+import pyrpkg # pylint: disable=import-error
+from pyrpkg.cli import cliClient # pylint: disable=import-error
+from pyrpkg.sources import SourcesFile # pylint: disable=import-error
 
 from .utils import log, fatal, ensuredir, rmrf, ensure_clean_dir, run_sync, hardlink_or_copy
 from .task import Task

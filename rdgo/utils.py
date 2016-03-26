@@ -22,8 +22,6 @@ import errno
 import subprocess
 import os
 
-from gi.repository import GLib, Gio
-
 def fatal(msg):
     print >>sys.stderr, msg
     sys.exit(1)
