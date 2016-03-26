@@ -5,7 +5,7 @@
 # In the future we'll hook up better tests.
 language: c
 addons:
-    apt:
+  apt:
     packages:
       - automake
       - autotools-dev
