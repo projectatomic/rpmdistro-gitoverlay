@@ -12,6 +12,9 @@ addons:
       - autotools-dev
 script:
   - env NOCONFIGURE=1 ./autogen.sh
+  - ./configure --prefix=/usr
+  - make -j 4
+  - make check
 
 notifications:
   # This is Colin's personal Homu instance.  We will
