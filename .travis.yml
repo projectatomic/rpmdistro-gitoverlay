@@ -4,12 +4,12 @@
 #
 # In the future we'll hook up better tests.
 language: c
-dist: trusty
 addons:
     apt:
     packages:
       - automake
       - autotools-dev
+      - pylint
 script:
   - env NOCONFIGURE=1 ./autogen.sh
   - ./configure --prefix=/usr
