@@ -10,12 +10,12 @@ addons:
       - automake
       - autotools-dev
 install:
-  - pip install pylint
+  - pip install --user pylint # The ubuntu one is ancient
 script:
   - env NOCONFIGURE=1 ./autogen.sh
   - ./configure --prefix=/usr
   - make -j 4
-  - make check
+  - env PATH=${HOME}/.local/bin:${PATH} make check
 
 notifications:
   # This is Colin's personal Homu instance.  We will
