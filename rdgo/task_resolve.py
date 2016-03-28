@@ -21,14 +21,12 @@ import argparse
 import subprocess
 import errno
 import shutil
-import yaml
 import tempfile
-import copy
 
 from .utils import log, fatal, ensuredir, rmrf, ensure_clean_dir, run_sync
-from .task import Task
+from .basetask_resolve import BaseTaskResolve
 from . import specfile 
-from .git import GitRemote, GitMirror
+from .git import GitRemote
 
 def require_key(conf, key):
     try:
@@ -36,9 +34,9 @@ def require_key(conf, key):
     except KeyError:
         fatal("Missing config key {0}".format(key))
 
-class TaskResolve(Task):
+class TaskResolve(BaseTaskResolve):
     def __init__(self):
-        Task.__init__(self)
+        BaseTaskResolve.__init__(self)
         self._srpm_mock_initialized = None
 
     def _json_dumper(self, obj):
@@ -46,111 +44,6 @@ class TaskResolve(Task):
             return obj.url
         else:
             return obj
-
-    def _url_to_projname(self, url):
-        rcolon = url.rfind(':')
-        rslash = url.rfind('/')
-        basename = url[max(rcolon, rslash)+1:]
-        if basename.endswith('.git'):
-            return basename[0:-4]
-        return basename
-
-    def _prepend_ovldatadir(self, val):
-        if not val:
-            return None
-        return self._overlay_datadir + '/' + val
-
-    def _expand_srckey(self, component, key):
-        url = component[key]
-        aliases = self._overlay.get('aliases', [])
-        for alias in aliases:
-            name = alias['name']
-            namec = name + ':'
-            if not url.startswith(namec):
-                continue
-            url = alias['url'] + url[len(namec):]
-            return GitRemote(url, self._prepend_ovldatadir(alias.get('cacertpath')))
-        return GitRemote(url)
-
-    def _ensure_key_or(self, dictval, key, value):
-        v = dictval.get(key)
-        if v is not None:
-            return v
-        dictval[key] = value
-        return value
-
-    def _one_of_keys(self, dictval, first, *args):
-        v = dictval.get(first)
-        if v is not None:
-            return v
-        for k in args:
-            v = dictval.get(k)
-            if v is not None:
-                return v
-        return None
-
-    def _expand_component(self, component):
-        for key in component:
-            if key not in ['src', 'spec', 'distgit', 'tag', 'branch', 'freeze', 'self-buildrequires']:
-                fatal("Unknown key {0} in component: {1}".format(key, component))
-        # 'src' and 'distgit' mappings
-        src = component.get('src')
-        distgit = component.get('distgit')
-        if src is None and distgit is None:
-            fatal("Component {0} is missing 'src' or 'distgit'")
-
-        spec = component.get('spec')
-        if spec is not None:
-            if spec == 'internal':
-                pass
-            else:
-                raise ValueError('Unknown spec type {0}'.format(spec))
-            
-        # Canonicalize
-        if src is None:
-            component['src'] = src = 'distgit'
-        if isinstance(distgit, str):
-            component['distgit'] = distgit = {'name': distgit}
-
-        if src != 'distgit':
-            component['src'] = self._expand_srckey(component, 'src')
-            name = self._ensure_key_or(component, 'name', self._url_to_projname(component['src'].url))
-            if spec != 'internal':
-                distgit = self._ensure_key_or(component, 'distgit', {})
-            else:
-                distgit = {}
-        else:
-            del component['src']
-            distgit = component.get('distgit')
-            if distgit is None:
-                fatal("Component {0} is missing 'distgit'")
-            name = distgit.get('name')
-            if name is None:
-                fatal("Component {0} is missing 'distgit/name'")
-            self._ensure_key_or(component, 'name', name)
-
-        pkgname_default = name
-
-        # TODO support pulling VCS from distgit
-        
-        # tag/branch defaults
-        if component.get('tag') is None:
-            component['branch'] = component.get('branch', 'master')
-
-        if spec != 'internal':
-            pkgname_default = self._ensure_key_or(distgit, 'name', pkgname_default)
-            distgit['src'] = self._ensure_key_or(distgit, 'src', 
-                                                 self._distgit_prefix + ':' + distgit['name'])
-            distgit['src'] = self._expand_srckey(distgit, 'src')
-
-            if distgit.get('tag') is None:
-                distgit['branch'] = distgit.get('branch', self._distgit.get('branch', 'master'))
-
-        for key in distgit:
-            if key not in ['patches', 'src', 'name', 'tag', 'branch', 'freeze']:
-                fatal("Unknown key {0} in component/distgit: {1}".format(key, component))
-
-        self._ensure_key_or(component, 'pkgname', pkgname_default)
 
     def _tar_czf_with_prefix(self, dirpath, prefix, output):
         dn = os.path.dirname(dirpath)
@@ -319,11 +212,12 @@ class TaskResolve(Task):
         srcdir = self.workdir + '/src'
         if not os.path.isdir(srcdir):
             fatal("Missing src/ directory; run 'rpmdistro-gitoverlay init'?")
+        if os.path.islink(srcdir):
+            fatal("src/ directory is a symbolic link; is this a thin clone?")
 
-        self.mirror = GitMirror(self.workdir + '/src')
-        self.lookaside_mirror = self.workdir + '/src/lookaside'
+        self._load_overlay()
+
         self.tmpdir = opts.tempdir
-
         self.old_snapshotdir = self.workdir + '/old-snapshot'
         self.snapshotdir = self.workdir + '/snapshot'
         self.tmp_snapshotdir = self.snapshotdir + '.tmp'
@@ -331,40 +225,11 @@ class TaskResolve(Task):
 
         ensuredir(self.lookaside_mirror)
 
-        ovlpath = self.workdir + '/overlay.yml'
-        with open(ovlpath) as f:
-            self._overlay = yaml.load(f)
-        if os.path.islink(ovlpath):
-            self._overlay_datadir = os.path.dirname(os.path.realpath(ovlpath))
-        else:
-            self._overlay_datadir = os.path.dirname(ovlpath)
+        expanded = self._expand_overlay(fetchall=opts.fetch_all, fetch=opts.fetch)
 
-        self._distgit = require_key(self._overlay, 'distgit')
-        self._distgit_prefix = require_key(self._distgit, 'prefix')
-
-        expanded = copy.deepcopy(self._overlay)
         for component in expanded['components']:
-            self._expand_component(component)
-            ref = self._one_of_keys(component, 'freeze', 'branch', 'tag')
-            do_fetch = opts.fetch_all or (component['name'] in opts.fetch)
-            src = component.get('src')
-            if src is not None:
-                revision = self.mirror.mirror(src, ref, fetch=do_fetch)
-                component['revision'] = revision
-
-            distgit = component.get('distgit')
-            if distgit is not None:
-                ref = self._one_of_keys(distgit, 'freeze', 'branch', 'tag')
-                do_fetch = opts.fetch_all or (distgit['name'] in opts.fetch)
-                revision = self.mirror.mirror(distgit['src'], ref, fetch=do_fetch)
-                distgit['revision'] = revision
-
             srcsnap = self._generate_srcsnap(component)
             component['srcsnap'] = os.path.basename(srcsnap)
-
-        del expanded['aliases']
-
-        expanded['00comment'] = 'Generated by rpmdistro-gitoverlay from overlay.yml: DO NOT EDIT!'
 
         snapshot_path = self.snapshotdir + '/snapshot.json'
         snapshot_tmppath = self.tmp_snapshotdir + '/snapshot.json'
