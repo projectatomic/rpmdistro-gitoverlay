@@ -376,20 +376,6 @@ class TaskResolve(Task):
         with open(ovlpath) as f:
             self._overlay = yaml.load(f)
 
-        root = require_key(self._overlay, 'root')
-        root_mock = require_key(root, 'mock')
-
-        # Support including mock .cfg files next to overlay.yml
-        if root_mock.endswith('.cfg') and not os.path.isabs(root_mock):
-            target_root_mock = os.path.join(self.workdir, root_mock)
-            if os.path.isfile(target_root_mock):
-                root_mock = target_root_mock
-            else:
-                contextdir = os.path.dirname(os.path.realpath(self.workdir + '/overlay.yml'))
-                root_mock = os.path.join(contextdir, root_mock)
-
-        self._root_mock = root_mock
-            
         self._distgit = require_key(self._overlay, 'distgit')
         self._distgit_prefix = require_key(self._distgit, 'prefix')
 
