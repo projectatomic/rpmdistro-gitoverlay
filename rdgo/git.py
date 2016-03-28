@@ -94,7 +94,7 @@ class GitMirror(object):
                 f.write('[url "{0}"]\n  insteadof = {1}:\n'.format(alias['url'], alias['name']))
         os.rename(new, self.gitconfig)
 
-    def _get_mirrordir(self, uri, prefix=''):
+    def _get_mirrordir(self, uri, prefix='', parent=None):
         colon = uri.find('://')
         if colon >= 0:
             scheme = uri[0:colon]
@@ -103,7 +103,7 @@ class GitMirror(object):
             raise Exception("Invalid uri {0}".format(uri))
         if prefix:
             prefix = prefix + '/'
-        return self.mirrordir + '/' + prefix + scheme + '/' + rest
+        return (parent or self.mirrordir) + '/' + prefix + scheme + '/' + rest
 
     def _git_revparse(self, gitdir, branch):
         return subprocess.check_output(['git', 'rev-parse', branch], cwd=gitdir).strip()
@@ -151,11 +151,26 @@ class GitMirror(object):
             rmrf(tmpdir)
 
     def mirror(self, remote, branch_or_tag,
-               fetch=False, fetch_continue=False):
+               fetch=False, fetch_continue=False,
+               parent_mirror=None):
         if not isinstance(remote, GitRemote):
             remote = GitRemote(remote)
         assert isinstance(remote, GitRemote)
         url = remote.url
+
+        # First, let's quickly handle the case where we have a parent mirror
+        if parent_mirror is not None:
+            self_mirrordir = self._get_mirrordir(url)
+            parent_mirrordir = self._get_mirrordir(url, parent=parent_mirror)
+            if not os.path.isdir(self_mirrordir):
+                tmp_mirror = self_mirrordir + '.tmp'
+                self._run('clone', '--mirror', '--shared', parent_mirrordir, tmp_mirror,
+                          env=remote.to_git_env())
+                self._run('config', 'gc.auto', '0', cwd=tmp_mirror)
+                os.rename(tmp_mirror, self_mirrordir)
+            return
+
+        # Otherwise, the clone from usptream path
         mirrordir = self._get_mirrordir(url)
         tmp_mirror = os.path.dirname(mirrordir) + '/' + os.path.basename(mirrordir) + '.tmp'
         

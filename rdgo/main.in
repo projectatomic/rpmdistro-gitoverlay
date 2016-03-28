@@ -38,12 +38,13 @@ else:
 path = os.path.join('@pkglibdir@')
 sys.path.insert(0, path)
 
-from rdgo import task_init, task_resolve, task_build
+from rdgo import task_init, task_resolve, task_build, task_clone
 
 commands = {
     "init" : [lambda: task_init.TaskInit(), "Initialize the directory"],
     "build" : [lambda: task_build.TaskBuild(), "Build the packages"],
     "resolve" : [lambda: task_resolve.TaskResolve(), "Perform a git mirror"],
+    "clone" : [lambda: task_clone.TaskClone(), "Create a new build directory, sharing source"],
 }
 
 def usage(iserr):
