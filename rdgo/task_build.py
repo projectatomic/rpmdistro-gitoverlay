@@ -85,6 +85,8 @@ class TaskBuild(Task):
         parser = argparse.ArgumentParser(description="Build RPMs")
         parser.add_argument('--tempdir', action='store', default=None,
                             help='Path to directory for temporary working files')
+        parser.add_argument('--arch', action='store', default=os.uname()[4],
+                            help='Value for $arch variable, substituted in mock root')
         parser.add_argument('--touch-if-changed', action='store', default=None,
                             help='Create or update timestamp on target path if a change occurred')
         parser.add_argument('--logdir', action='store', default=None,
@@ -94,8 +96,8 @@ class TaskBuild(Task):
         snapshot = self.get_snapshot()
 
         root = require_key(snapshot, 'root')
-        root_mock = require_key(root, 'mock')
-
+        root_mock = require_key(root, 'mock').replace('$arch', opts.arch)
+        
         self.tmpdir = opts.tempdir
 
         self.mirror = GitMirror(self.workdir + '/src')
