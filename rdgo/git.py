@@ -35,7 +35,6 @@ class GitRemote(object):
         env = {}
         if self.cacertpath is not None:
             env['GIT_SSL_CAINFO'] = self.cacertpath
-        print "using env {}".format(env)
         return env
 
 def path_with_suffix(path, suffix):
