@@ -81,10 +81,10 @@ class TaskResolve(Task):
             return basename[0:-4]
         return basename
 
-    def _prepend_workdir(self, val):
+    def _prepend_ovldatadir(self, val):
         if not val:
             return None
-        return self.workdir + '/' + val
+        return self._overlay_datadir + '/' + val
 
     def _expand_srckey(self, component, key):
         url = component[key]
@@ -95,7 +95,7 @@ class TaskResolve(Task):
             if not url.startswith(namec):
                 continue
             url = alias['url'] + url[len(namec):]
-            return GitRemote(url, self._prepend_workdir(alias.get('cacertpath')))
+            return GitRemote(url, self._prepend_ovldatadir(alias.get('cacertpath')))
         return GitRemote(url)
 
     def _ensure_key_or(self, dictval, key, value):
@@ -375,6 +375,10 @@ class TaskResolve(Task):
         ovlpath = self.workdir + '/overlay.yml'
         with open(ovlpath) as f:
             self._overlay = yaml.load(f)
+        if os.path.islink(ovlpath):
+            self._overlay_datadir = os.path.dirname(os.readlink(ovlpath))
+        else:
+            self._overlay_datadir = os.path.dirname(ovlpath)
 
         self._distgit = require_key(self._overlay, 'distgit')
         self._distgit_prefix = require_key(self._distgit, 'prefix')
