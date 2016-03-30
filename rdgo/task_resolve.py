@@ -163,7 +163,7 @@ class TaskResolve(Task):
             distgit['src'] = self._expand_srckey(distgit, 'src')
 
             if distgit.get('tag') is None:
-                distgit['branch'] = distgit.get('branch', 'master')
+                distgit['branch'] = distgit.get('branch', self._distgit.get('branch', 'master'))
 
         for key in distgit:
             if key not in ['patches', 'src', 'name', 'tag', 'branch', 'freeze']:
