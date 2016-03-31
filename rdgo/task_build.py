@@ -158,7 +158,7 @@ class TaskBuild(Task):
                 ensure_clean_dir(opts.logdir)
                 self._move_logs_to_logdir(self.newbuilddir, opts.logdir)
             if rc != 0:
-                fatal("mockchain exited with code {0}".format(rc))
+                fatal("{0} failed: mockchain exited with code {1}".format(os.path.basename(self.newbuilddir), rc))
         elif need_createrepo:
             log("No build neeeded, but component set changed")
 
