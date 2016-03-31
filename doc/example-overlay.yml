@@ -1,39 +1,52 @@
-# An example overlay file
-
 aliases: 
   - name: github
     url: https://github.com/
-
-  - name: fd
-    url: git://anongit.freedesktop.org/git/
+    # We support "pinned TLS"; save the CA certificate
+    # in the same directory as `overlay.yml`, and set this key.
+    cacertpath: DigiCertSHA2ExtendedValidationServerCA.pem
 
   - name: fedorapkgs
-    url: git://pkgs.fedoraproject.org/
+    url: https://pkgs.fedoraproject.org/git/rpms/
+    # Note this is actually not in ca-certificates.
+    cacertpath: FedoraProjectCA.pem
 
 distgit:
-  - prefix: fedorapkgs
+  prefix: fedorapkgs
+  branch: f23
   
 root:
-  mock: fedora-22-x86_64
-  distgit-branch: f22
+  mock: fedora-23-$arch
 
 components:
   # Pull from upstream git master and dist-git named `etcd`
   - src: github:coreos/etcd
 
+  # Just rebuild what's in dist-git.  This is primarily useful if you
+  # want to e.g. grab Fedora spec files and backport to CentOS
+  - distgit: gtk-doc
+
+  # We also support grabbing a spec file from the upstream git,
+  # should they happen to include one.
+  - src: github:rpm-software-management/libhif
+    spec: internal
+
   - src: github:shurcooL/sanitized_anchor_name
-    # Arbitrary commit as of 20150716
+    # Freeze to an arbitrary commit
     tag: 11a20b799bf22a02808c862eb6ca09f7fb38f84a
     distgit:
+      # If the dist-git name can't be inferred from the github URL,
+      # you can specify it explicitly.  (In the future we might
+      # support pattern generation for things like python- and golang-)
       name: golang-github-shurcooL-sanitized_anchor_name
 
-  # We support dropping patches from dist-git automatically
   - src: github:projectatomic/rpm-ostree
     distgit:
+      # You can drop patches from dist-git in case they're already
+      # merged in upstream git master.
       patches: drop
 
   # Let's say something goes wrong; you can "freeze" to
-  # a particular commit.
+  # a particular commit in upstream too.
   - src: github:docker/docker
     freeze: 20556a63338d04f76aa3ec0d77c95072b75e1d29
     distgit:
