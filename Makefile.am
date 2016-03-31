@@ -25,6 +25,8 @@ AM_CPPFLAGS += -DDATADIR='"$(datadir)"' \
 	-DLOCALEDIR=\"$(datadir)/locale\"
 AM_CFLAGS += $(WARN_CFLAGS)
 
+GITIGNOREFILES = aclocal.m4 build-aux/ buildutil/*.m4 m4/ config.h.in gtk-doc.make
+
 include $(INTROSPECTION_MAKEFILE)
 
 girdir = $(pkgdatadir)/gir-1.0
@@ -36,3 +38,5 @@ include Makefile-rdgo.am
 
 pylint:
 	env PYLINT_FULL=true srcdir=$(srcdir) $(srcdir)/pylint.sh 
+
+-include $(top_srcdir)/git.mk

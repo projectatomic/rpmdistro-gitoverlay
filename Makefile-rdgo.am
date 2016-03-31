@@ -25,6 +25,7 @@ substitutions= \
 
 rpmdistro-gitoverlay: rdgo/main.in Makefile
 	sed $(substitutions) $< > $@.tmp && mv $@.tmp $@
+CLEANFILES += rpmdistro-gitoverlay
 
 rdgo_privlibdir=$(libdir)/$(PACKAGE)
 
