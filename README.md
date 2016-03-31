@@ -64,22 +64,24 @@ source will also drop out of the generated repository.
     aliases: 
       - name: github
         url: git://github.com/
+        # We support "pinned TLS"; save the CA certificate
+        # in the same directory as `overlay.yml`, and set this key.
+        cacertpath: DigiCertSHA2ExtendedValidationServerCA.pem
     
       - name: gnome
-        url: git://git.gnome.org/
+        url: https://git.gnome.org/browse/
+        cacertpath: StartComClass2PrimaryIntermediateServerCA.pem
     
       - name: fedorapkgs
-        url: git://pkgs.fedoraproject.org/
+        url: https://pkgs.fedoraproject.org/git/rpms/
+        cacertpath: FedoraProjectCA.pem
     
     distgit:
       prefix: fedorapkgs
-      branch: master
+      branch: f23
       
     root:
-      mock: fedora-rawhide-x86_64
-    
-    cache:
-      buildserial: 0
+      mock: fedora-23-$arch
     
     components:
       - src: github:coreos/etcd
