@@ -121,8 +121,9 @@ class TaskResolve(Task):
                 fatal("Unknown key {0} in component: {1}".format(key, component))
         # 'src' and 'distgit' mappings
         src = component.get('src')
-        if src is None:
-            fatal("Component {0} is missing 'src'")
+        distgit = component.get('distgit')
+        if src is None and distgit is None:
+            fatal("Component {0} is missing 'src' or 'distgit'")
 
         spec = component.get('spec')
         if spec is not None:
@@ -131,6 +132,12 @@ class TaskResolve(Task):
             else:
                 raise ValueError('Unknown spec type {0}'.format(spec))
             
+        # Canonicalize
+        if src is None:
+            component['src'] = src = 'distgit'
+        if isinstance(distgit, str):
+            component['distgit'] = distgit = { 'name': distgit }
+
         if src != 'distgit':
             component['src'] = self._expand_srckey(component, 'src')
             name = self._ensure_key_or(component, 'name', self._url_to_projname(component['src'].url))
