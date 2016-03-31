@@ -59,45 +59,7 @@ source will also drop out of the generated repository.
 
 ## An example overlay file
 
-    # An example overlay file
-    
-    aliases: 
-      - name: github
-        url: git://github.com/
-        # We support "pinned TLS"; save the CA certificate
-        # in the same directory as `overlay.yml`, and set this key.
-        cacertpath: DigiCertSHA2ExtendedValidationServerCA.pem
-    
-      - name: gnome
-        url: https://git.gnome.org/browse/
-        cacertpath: StartComClass2PrimaryIntermediateServerCA.pem
-    
-      - name: fedorapkgs
-        url: https://pkgs.fedoraproject.org/git/rpms/
-        cacertpath: FedoraProjectCA.pem
-    
-    distgit:
-      prefix: fedorapkgs
-      branch: f23
-      
-    root:
-      mock: fedora-23-$arch
-    
-    components:
-      - src: github:coreos/etcd
-
-      - src: github:russross/blackfriday
-        # What's in the Fedora rawihde specfile as of 20150716;
-	# this is how you can pin to specific upstream commits
-        tag: 77efab57b2f74dd3f9051c79752b2e8995c8b789
-        distgit:
-          name: golang-github-russross-blackfriday
-
-      - src: github:rhatdan/docker
-        branch: fedora-1.9
-        distgit:
-	  # This is a bit of a hack, necessary to retrieve multiple sources
-          prep-command: fedpkg --dist=f23 sources
+See [Example overlay](doc/example-overlay.yml) for an example.
 
 ## Running
 
@@ -105,26 +67,34 @@ Create a working directory where the primary data `src/` and `rpms/`
 will be stored, and copy your `overlay.yml` in there (or symlink it to
 a git checkout).  Then run `init`:
 
-    mkdir -p /srv/build
-    ln -s ~walters/src/fedora-atomic/overlay.yml .
-    rpmdistro-gitoverlay init
+```
+mkdir -p /srv/build
+ln -s ~walters/src/fedora-atomic/overlay.yml .
+rpmdistro-gitoverlay init
+```
 
 That finishes the one-time initialization work.  Now, we perform a
 `resolve`: This will generate a `src/` directory which is a git mirror
 of all inputs (recursively mirroring submodules), and take a snapshot
 of exact commits into `snapshot.json`
 
-    rpmdistro-gitoverlay resolve --fetch-all
-    ls -al snapshot.json
+```
+rpmdistro-gitoverlay resolve --fetch-all
+ls -al snapshot.json
+```
 
 Now, let's do a build:
 
-    rpmdistro-gitoverlay build
+```
+rpmdistro-gitoverlay build
+```
 
 This will generate `rpms/`, which is a yum repository.  Note however
 the system is idempotent, if we run again:
 
-    rpmdistro-gitoverlay build
+```
+rpmdistro-gitoverlay build
+```
 
 Nothing should happen aside from a `createrepo` invocation.
     
