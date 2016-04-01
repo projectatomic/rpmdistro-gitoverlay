@@ -57,27 +57,40 @@ class TaskBuild(Task):
         h.update(serialized)
         return h.hexdigest()
 
-    def _move_logs_to_logdir(self, builddir, logdir):
-        for dname in os.listdir(builddir):
-            dpath = os.path.join(builddir, dname)
-            statusjson = dpath + '/status.json'
+    def _postprocess_results(self, builddir, snapshot=None, newcache=None, logdir=None):
+        # We always dump the partial build results, so the next build can pick them up
+        retained = []
+        for component in snapshot['components']:
+            distgit_name = component['pkgname']
+            dpath = builddir + '/' + distgit_name
+            cachedstate = newcache[distgit_name]
+            cached_dirname = cachedstate['dirname']
+            statusjson = '{0}/{1}/status.json'.format(builddir, cached_dirname)
+            success = False
             if os.path.isfile(statusjson):
                 with open(statusjson) as f:
                     status = json.load(f)
-                success = (status['status'] == 'success')
+                    success = (status['status'] == 'success')
+            if logdir is not None:
                 if success:
-                    sublogdir = logdir + '/success/' + dname
+                    sublogdir = logdir + '/success/' + distgit_name
                 else:
-                    sublogdir = logdir + '/failed/' + dname
+                    sublogdir = logdir + '/failed/' + distgit_name
                 ensure_clean_dir(sublogdir)
                 for subname in os.listdir(dpath):
                     subpath = dpath + '/' + subname
                     if subname.endswith(('.json', '.log')):
                         shutil.move(subpath, sublogdir + '/' + subname)
+            if not success:
+                del newcache[distgit_name]
+            else:
+                retained.append(distgit_name)
+        if len(retained) > 0:
+            log("Retaining partial sucessful builds: {0}".format(' '.join(retained)))
 
-    def _copy_previous_build(self, cachedstate):
+    def _copy_previous_build(self, cachedstate, fromdir):
         cached_dirname = cachedstate['dirname']
-        oldrpmdir = self.builddir.path + '/' + cached_dirname
+        oldrpmdir = fromdir + '/' + cached_dirname
         newrpmdir = self.newbuilddir + '/' + cached_dirname
         subprocess.check_call(['cp', '-al', oldrpmdir, newrpmdir])
 
@@ -103,8 +116,10 @@ class TaskBuild(Task):
         self.mirror = GitMirror(self.workdir + '/src')
         self.snapshotdir = self.workdir + '/snapshot'
         self.builddir = SwappedDirectory(self.workdir + '/build')
-
-        self.newbuilddir = self.builddir.prepare()
+        # Contains any artifacts from a previous run that did succeed
+        self.partialbuilddir = self.workdir + '/build.partial'
+        
+        self.newbuilddir = self.builddir.prepare(save_partial_dir=self.partialbuilddir)
 
         # Support including mock .cfg files next to overlay.yml
         if root_mock.endswith('.cfg') and not os.path.isabs(root_mock):
@@ -122,6 +137,11 @@ class TaskBuild(Task):
         if os.path.exists(oldcache_path):
             with open(oldcache_path) as f:
                 oldcache = json.load(f)
+        partial_path = self.partialbuilddir + '/buildstate.json'
+        partial_cache = {}
+        if os.path.exists(partial_path):
+            with open(partial_path) as f:
+                partial_cache = json.load(f)
         newcache = {}
         newcache_path = self.newbuilddir + '/buildstate.json'
 
@@ -133,17 +153,34 @@ class TaskBuild(Task):
         for component in snapshot['components']:
             component_hash = self._json_hash(component)
             distgit_name = component['pkgname']
-            cachedstate = oldcache.get(distgit_name)
-            if cachedstate is not None:
-                cached_dirname = cachedstate['dirname']
-                if cachedstate['hashv0'] == component_hash:
-                    log("Reusing cached build: {0}".format(cached_dirname))
-                    self._copy_previous_build(cachedstate)
-                    newcache[distgit_name] = cachedstate
+            cache_misses = []
+            for (cache, cache_parent, cache_description) in [(oldcache, self.builddir.path, 'previous'),
+                                                             (partial_cache, self.partialbuilddir, 'partial')]:
+                cachedstate = cache.get(distgit_name)
+                if cachedstate is None:
                     continue
-                elif component.get('self-buildrequires', False):
-                    log("Copying previous cached build for self-BR: {0}".format(cached_dirname))
-                    self._copy_previous_build(cachedstate)
+
+                cached_dirname = cachedstate['dirname']
+                if component.get('self-buildrequires', False):
+                    log("Copying previous {1} build due to self-BuildRequires: {0}".format(cached_dirname, cache_description))
+                    self._copy_previous_build(cachedstate, cache_parent)
+                    break
+                elif cachedstate['hashv0'] == component_hash:
+                    log("Reusing cached {1} build: {0}".format(cached_dirname, cache_description))
+                    self._copy_previous_build(cachedstate, cache_parent)
+                    newcache[distgit_name] = cachedstate
+                    break
+                else:
+                    cache_misses.append(cache_description)
+
+            if newcache.get(distgit_name) is not None:
+                continue
+
+            if len(cache_misses) > 0:
+                log("Cache miss for {0} in: {1}".format(distgit_name, ' '.join(cache_misses)))
+            else:
+                log("No cached state for {0}".format(distgit_name))
+
             srcsnap = component['srcsnap']
             newcache[distgit_name] = {'hashv0': component_hash,
                                       'dirname': srcsnap.replace('.srcsnap','')}
@@ -151,12 +188,17 @@ class TaskBuild(Task):
             need_build = True
             need_createrepo = True
 
+        # At this point we've consumed any previous partial results, so clean up the dir.
+        rmrf(self.partialbuilddir)
+
         if need_build:
             mc = MockChain(root_mock, self.newbuilddir)
             rc = mc.build(pkglist)
             if opts.logdir is not None:
                 ensure_clean_dir(opts.logdir)
-                self._move_logs_to_logdir(self.newbuilddir, opts.logdir)
+            self._postprocess_results(self.newbuilddir, snapshot=snapshot, newcache=newcache, logdir=opts.logdir)
+            with open(newcache_path, 'w') as f:
+                json.dump(newcache, f, sort_keys=True)
             if rc != 0:
                 fatal("{0} failed: mockchain exited with code {1}".format(os.path.basename(self.newbuilddir), rc))
         elif need_createrepo:
@@ -164,9 +206,9 @@ class TaskBuild(Task):
 
         if need_createrepo:
             run_sync(['createrepo_c', '--no-database', '--update', '.'], cwd=self.newbuilddir)
-            # No idea why createrepo is injecting this
-            with open(newcache_path, 'w') as f:
-                json.dump(newcache, f, sort_keys=True)
+            if not need_build:
+                with open(newcache_path, 'w') as f:
+                    json.dump(newcache, f, sort_keys=True)
 
             self.builddir.commit()
             if opts.touch_if_changed:
