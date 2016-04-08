@@ -361,6 +361,8 @@ class TaskResolve(Task):
                             help='Fetch the specified git repository')
         parser.add_argument('--touch-if-changed', action='store', default=None,
                             help='Create or update timestamp on target path if a change occurred')
+        parser.add_argument('-b', '--build', action='store_true', 
+                            help='If fetch changes, automatically do a build')
 
         opts = parser.parse_args(argv)
 
@@ -437,6 +439,8 @@ class TaskResolve(Task):
                 with open(opts.touch_if_changed, 'a'):
                     log("Updated timestamp of {}".format(opts.touch_if_changed))
                     os.utime(opts.touch_if_changed, None)
+            if opts.build:
+                os.execlp('rpmdistro-gitoverlay', 'rpmdistro-gitoverlay', 'build')
         else:
             rmrf(self.tmp_snapshotdir)
             log("No changes.")
