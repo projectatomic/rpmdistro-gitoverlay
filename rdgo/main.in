@@ -27,9 +27,11 @@ else:
 if sys.version_info[0] < 3:
     import __builtin__
     __builtin__.__dict__['DATADIR'] = datadir
+    __builtin__.__dict__['PKGLIBDIR'] = '@pkglibdir@'
 else:
     import builtins
     builtins.__dict__['DATADIR'] = datadir
+    builtins.__dict__['PKGLIBDIR'] = '@pkglibdir@'
 
 # This is a private directory, we don't want to pollute the global
 # namespace.

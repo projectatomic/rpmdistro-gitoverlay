@@ -1,0 +1,118 @@
+#!/usr/bin/env python
+#
+# Copyright (C) 2016 Colin Walters <walters@verbum.org>
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the
+# Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.
+
+import os
+import json
+import pwd
+import collections
+import sys
+import argparse
+if sys.version_info[0] < 3:
+    import ConfigParser
+else:
+    import configparser
+import subprocess
+import errno
+import shutil
+import yaml
+import tempfile
+import copy
+
+# We don't have this on Travis (Ubuntu)...should probably make it optional.
+import pyrpkg # pylint: disable=import-error
+from pyrpkg.cli import cliClient # pylint: disable=import-error
+from pyrpkg.sources import SourcesFile # pylint: disable=import-error
+
+# Copy of stuff for utils for whatever version of Python
+def hardlink_or_copy(src, dest):
+    try:
+        os.link(src, dest)
+    except OSError as e:
+        if e.errno != errno.EXDEV:
+            raise
+        shutil.copy(src,dest)
+
+def ensuredir(path, with_parents=False):
+    try:
+        os.makedirs(path)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+
+class RpkgPrepSources(object):
+    def _get_rpkg(self, distgit_url, distgit_co):
+        rpkgconfig = ConfigParser.SafeConfigParser()
+        pkgtype = 'fedpkg'
+        # Yes, awful hack.
+        if distgit_url.find('pkgs.devel.redhat.com') != -1:
+            pkgtype = 'rhpkg'
+        rpkgconfig.read('/etc/rpkg/{0}.conf'.format(pkgtype))
+        rpkgconfig.add_section(os.path.basename(distgit_co))
+        rpkg = cliClient(rpkgconfig, pkgtype)
+        rpkg.do_imports(site=pkgtype)
+        rpkg.args = rpkg.parser.parse_args(['--path=' + distgit_co, 'sources'])
+        return rpkg
+        
+    def run(self, argv):
+        parser = argparse.ArgumentParser(description="Ensure dist-git sources exist")
+        parser.add_argument('--distgit-name')
+        parser.add_argument('--distgit-url')
+        parser.add_argument('--distgit-co')
+        parser.add_argument('--lookaside-mirror')
+
+        valid_source_htypes = ['md5']
+
+        opts = parser.parse_args(argv)
+
+        sources_path = opts.distgit_co + '/sources'
+        rpkg = self._get_rpkg(opts.distgit_url, opts.distgit_co)
+        srcfile = SourcesFile(sources_path, rpkg.cmd.source_entry_type)
+        for entry in srcfile.entries:
+            # For now, enforce this due to paranoia about potential unsafe
+            # code paths.
+            if entry.hashtype not in valid_source_htypes:
+                fatal('Invalid hash type {0}'.format(entry.hashtype))
+            hashtypepath = opts.lookaside_mirror + '/' + entry.hashtype
+            ensuredir(hashtypepath)
+
+            # Sanity check
+            assert '/' not in entry.hash
+            assert '/' not in entry.file
+
+            hashprefixpath = hashtypepath + '/' + entry.hash[0:2]
+            ensuredir(hashprefixpath)
+            objectpath = hashprefixpath + '/' + entry.hash[2:]
+
+            objectpath_tmp = objectpath + '.tmp'
+            subprocess.check_call(['rm', '-rf', objectpath_tmp])
+
+            if not os.path.exists(objectpath):
+                print("Downloading source object for {0}: {1}".format(opts.distgit_name, entry.file))
+                rpkg.cmd.lookasidecache.download(opts.distgit_name,
+                                                 entry.file, entry.hash,
+                                                 objectpath_tmp,
+                                                 hashtype=entry.hashtype)
+                os.rename(objectpath_tmp, objectpath)
+            else:
+                print("Reusing cached source object for {0}: {1}".format(opts.distgit_name, entry.file))
+            hardlink_or_copy(objectpath, opts.distgit_co + '/' + entry.file)
+
+if __name__ == '__main__':
+    inst = RpkgPrepSources()
+    inst.run(sys.argv[1:])
