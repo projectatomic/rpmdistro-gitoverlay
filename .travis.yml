@@ -10,7 +10,7 @@ addons:
       - automake
       - autotools-dev
 install:
-  - pip install --user pylint # The ubuntu one is ancient
+  - pip install --user pylint flake8
 script:
   - env NOCONFIGURE=1 ./autogen.sh
   - ./configure --prefix=/usr

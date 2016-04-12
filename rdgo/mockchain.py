@@ -24,15 +24,13 @@ from __future__ import print_function
 try:
     from six.moves.urllib_parse import urlsplit  # pylint: disable=no-name-in-module
 except ImportError:
-    from urlparse import urlsplit
+    from urlparse import urlsplit  # noqa
 import sys
 import subprocess
 import json
 import os
-import optparse
 import tempfile
 import shutil
-import time
 import re
 
 import mockbuild.util
@@ -236,21 +234,21 @@ class MockChain(object):
             self.do_clean_root()
 
         mockcmd = self._get_mock_base_argv()
-        mockcmd.extend(['--nocheck', # Tests should run after builds
+        mockcmd.extend(['--nocheck',  # Tests should run after builds
                         '--yum',
                         '--resultdir', resdir,
                         '--no-cleanup-after'])
         mockcmd.append(srpm)
         print('Executing: {0}'.format(subprocess.list2cmdline(mockcmd)))
         cmd = subprocess.Popen(mockcmd,
-               stdout=subprocess.PIPE,
-               stderr=subprocess.PIPE)
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
         out, err = cmd.communicate()
         success = cmd.returncode == 0
         postprocess_mock_resultdir(resdir, success)
 
         if success:
-            if not 'PRESERVE_TEMP' in os.environ:
+            if 'PRESERVE_TEMP' not in os.environ:
                 rmrf(srpm)
 
         ret = 1 if success else 0
@@ -279,10 +277,10 @@ class MockChain(object):
                     log("Error building %s." % os.path.basename(pkg))
                     if len(pkgs) > 1:
                         log("Will try to build again (if some other package will succeed).")
-                        if not 'PRESERVE_TEMP' in os.environ:
+                        if 'PRESERVE_TEMP' not in os.environ:
                             self.do_clean_root()
                     else:
-                        if not 'PRESERVE_TEMP' in os.environ:
+                        if 'PRESERVE_TEMP' not in os.environ:
                             self.do_clean_root()
                 elif ret == 1:
                     log("Success building %s" % os.path.basename(pkg))

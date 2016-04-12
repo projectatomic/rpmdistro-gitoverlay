@@ -26,7 +26,7 @@ import time
 import rpm
 
 def spec_fn(spec_dir='.'):
-    specs = [f for f in os.listdir(spec_dir) \
+    specs = [f for f in os.listdir(spec_dir)
              if os.path.isfile(spec_dir + '/' + f) and f.endswith('.spec')]
     if not specs:
         raise Exception("No spec file found in {0}".format(spec_dir))
@@ -97,7 +97,6 @@ class Spec(object):
         return self._rpmspec
 
     def expand_macro(self, macro):
-        rs = self.rpmspec
         return rpm.expandMacro(macro)
 
     def get_tag(self, tag, expand_macros=False, allow_empty=False):
@@ -134,7 +133,7 @@ class Spec(object):
 
         try:
             n_commits = int(n_commits)
-        except ValueError as e:
+        except ValueError:
             n_commits = 0
         return patches_base_ref, n_commits
 
@@ -263,7 +262,7 @@ class Spec(object):
             ps += "Patch%04d: %s\n" % (i, pfn)
             if apply_method == 'rpm':
                 pa += "%%patch%04d -p1\n" % i
-        ## PatchXXX: lines after Source0 / #patches_base=
+        # PatchXXX: lines after Source0 / #patches_base=
         self._txt, n = re.subn(
             self.RE_AFTER_PATCHES_BASE,
             r'\g<1>%s\n' % ps, self.txt, count=1)
@@ -273,7 +272,7 @@ class Spec(object):
                 r'\g<1>%s\n' % ps, self.txt, count=1)
         if n != 1:
             raise Exception("SpecFileParseError: Failed to append PatchXXXX: lines")
-        ## %patchXXX -p1 lines after "%setup" if needed
+        # %patchXXX -p1 lines after "%setup" if needed
         if apply_method == 'rpm':
             self._txt, n = re.subn(
                 r'((?:^|\n)%setup[^\n]*\n)\s*',
@@ -292,7 +291,6 @@ class Spec(object):
         return False
 
     def set_release(self, new_release, milestone=None, postfix=None):
-        recognized_format = True
         release = new_release
         if milestone:
             release += '.%s' % milestone

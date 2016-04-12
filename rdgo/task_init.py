@@ -16,21 +16,15 @@
 # Boston, MA 02111-1307, USA.
 
 import os
-import json
 import argparse
-import yaml
-import copy
 
 from .utils import log, fatal
 from .task import Task
-from .git import GitMirror
-
 
 class TaskInit(Task):
     def run(self, argv):
         parser = argparse.ArgumentParser(description="Initialize an overlay directory")
-
-        opts = parser.parse_args(argv)
+        parser.parse_args(argv)
 
         ovlpath = self.workdir + '/overlay.yml'
         if not os.path.isfile(ovlpath):

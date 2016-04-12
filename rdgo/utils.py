@@ -73,4 +73,3 @@ def ensuredir(path, with_parents=False):
 def ensure_clean_dir(path):
     rmrf(path)
     ensuredir(path)
-
