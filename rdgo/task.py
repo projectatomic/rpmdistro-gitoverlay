@@ -28,4 +28,3 @@ class Task(object):
             with open(self.workdir + '/snapshot/snapshot.json') as f:
                 self._snapshot = json.load(f)
         return self._snapshot
-        

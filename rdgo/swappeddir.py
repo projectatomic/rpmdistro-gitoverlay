@@ -15,9 +15,7 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
-import sys
 import errno
-import subprocess
 import os
 
 from .utils import ensuredir, ensure_clean_dir, rmrf
@@ -78,8 +76,3 @@ class SwappedDirectory(object):
         rmrf(tmplink)
         os.symlink(self._newdir(), tmplink)
         os.rename(tmplink, self.path)
-        
-        
-        
-            
-        

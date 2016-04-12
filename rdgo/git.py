@@ -19,7 +19,6 @@ import os
 import sys
 import re
 import collections
-import shutil
 import subprocess
 import tempfile
 import yaml
@@ -49,7 +48,6 @@ def make_absolute_url(parent, relpath):
     assert method_index != -1
     first_slash = parent.find('/', method_index+3)
     assert first_slash != -1
-    parent_path = parent[first_slash:]
     while relpath.startswith('../'):
         i = parent.rfind('/')
         if i == -1:
@@ -145,10 +143,10 @@ class GitMirror(object):
     def _list_submodules(self, gitdir, uri, branch):
         current_rev = self._git_revparse(gitdir, branch)
         tmpdir = tempfile.mkdtemp('', 'tmp-gitmirror', self.tmpdir)
-        tmp_clone =  tmpdir + '/checkout'
+        tmp_clone = tmpdir + '/checkout'
         try:
             self._run('clone', '-q', '--no-checkout', gitdir, tmp_clone)
-            return self._list_submodules_in(tmp_clone, uri, rev=branch)
+            return self._list_submodules_in(tmp_clone, uri, rev=current_rev)
         finally:
             rmrf(tmpdir)
 
@@ -160,7 +158,6 @@ class GitMirror(object):
         url = remote.url
         mirrordir = self._get_mirrordir(url)
         tmp_mirror = os.path.dirname(mirrordir) + '/' + os.path.basename(mirrordir) + '.tmp'
-        did_update = False
         
         rmrf(tmp_mirror)
         if not os.path.isdir(mirrordir):
@@ -226,4 +223,3 @@ class GitMirror(object):
             rgdash = description.rfind('-g')
             assert rgdash >= 0
             return (description[0:rgdash], description[rgdash+2:])
-        

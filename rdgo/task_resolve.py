@@ -17,14 +17,7 @@
 
 import os
 import json
-import pwd
-import collections
-import sys
 import argparse
-if sys.version_info[0] < 3:
-    import ConfigParser
-else:
-    import configparser
 import subprocess
 import errno
 import shutil
@@ -32,7 +25,7 @@ import yaml
 import tempfile
 import copy
 
-from .utils import log, fatal, ensuredir, rmrf, ensure_clean_dir, run_sync, hardlink_or_copy
+from .utils import log, fatal, ensuredir, rmrf, ensure_clean_dir, run_sync
 from .task import Task
 from . import specfile 
 from .git import GitRemote, GitMirror
@@ -40,7 +33,7 @@ from .git import GitRemote, GitMirror
 def require_key(conf, key):
     try:
         return conf[key]
-    except KeyError as e:
+    except KeyError:
         fatal("Missing config key {0}".format(key))
 
 class TaskResolve(Task):
@@ -117,7 +110,7 @@ class TaskResolve(Task):
         if src is None:
             component['src'] = src = 'distgit'
         if isinstance(distgit, str):
-            component['distgit'] = distgit = { 'name': distgit }
+            component['distgit'] = distgit = {'name': distgit}
 
         if src != 'distgit':
             component['src'] = self._expand_srckey(component, 'src')
@@ -231,7 +224,7 @@ class TaskResolve(Task):
         if os.path.exists(sources_path):
             # Exec as an external binary because pyrpkg is python 2 only, and
             # mock is Python 3 only.  Sigh.
-            subprocess.check_call([PKGLIBDIR + '/rpkg-prep-sources', # pylint: disable=undefined-variable
+            subprocess.check_call([PKGLIBDIR + '/rpkg-prep-sources',  # noqa pylint: disable=undefined-variable
                                    '--distgit-name='+distgit['name'],
                                    '--distgit-url='+distgit['src'].url,
                                    '--distgit-co='+distgit_co,
@@ -305,7 +298,7 @@ class TaskResolve(Task):
                                         distgit_desc, distgit_co,
                                         srcsnap_name)
         finally:
-            if not 'PRESERVE_TEMP' in os.environ:
+            if 'PRESERVE_TEMP' not in os.environ:
                 rmrf(tmpdir)
         return srcsnap_name
 
@@ -381,8 +374,7 @@ class TaskResolve(Task):
         rmrf(self.old_snapshotdir)
 
         changed = True
-        if (os.path.exists(snapshot_path) and
-            subprocess.call(['cmp', '-s', snapshot_path, snapshot_tmppath]) == 0):
+        if (os.path.exists(snapshot_path) and subprocess.call(['cmp', '-s', snapshot_path, snapshot_tmppath]) == 0):
             changed = False
         if changed:
             try:
@@ -401,4 +393,3 @@ class TaskResolve(Task):
         else:
             rmrf(self.tmp_snapshotdir)
             log("No changes.")
-                

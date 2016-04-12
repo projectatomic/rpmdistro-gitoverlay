@@ -20,16 +20,12 @@ from __future__ import print_function
 import os
 import argparse
 import json
-import StringIO
 import subprocess
 import shutil
 import hashlib
-import yaml
-import tempfile
-import copy
 
 from .swappeddir import SwappedDirectory
-from .utils import log, fatal, ensuredir, rmrf, ensure_clean_dir, run_sync, hardlink_or_copy
+from .utils import log, fatal, rmrf, ensure_clean_dir, run_sync
 from .task import Task
 from .git import GitMirror
 from .mockchain import MockChain
@@ -37,7 +33,7 @@ from .mockchain import MockChain
 def require_key(conf, key):
     try:
         return conf[key]
-    except KeyError as e:
+    except KeyError:
         fatal("Missing config key {0}".format(key))
 
 class TaskBuild(Task):
@@ -220,5 +216,3 @@ class TaskBuild(Task):
         else:
             self.builddir.abandon()
             log("No changes.")
-
-
