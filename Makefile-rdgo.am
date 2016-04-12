@@ -35,4 +35,6 @@ bin_SCRIPTS += rpmdistro-gitoverlay \
 pyrdgolibpydir = $(pkglibdir)/rdgo
 pyrdgolibpy_PYTHON = $(wildcard rdgo/*.py)
 
+rdgo_privlib_SCRIPTS = rdgo/rpkg-prep-sources
+
 TESTS += pylint.sh

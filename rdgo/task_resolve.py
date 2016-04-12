@@ -32,11 +32,6 @@ import yaml
 import tempfile
 import copy
 
-# We don't have this on Travis (Ubuntu)...should probably make it optional.
-import pyrpkg # pylint: disable=import-error
-from pyrpkg.cli import cliClient # pylint: disable=import-error
-from pyrpkg.sources import SourcesFile # pylint: disable=import-error
-
 from .utils import log, fatal, ensuredir, rmrf, ensure_clean_dir, run_sync, hardlink_or_copy
 from .task import Task
 from . import specfile 
@@ -52,7 +47,6 @@ class TaskResolve(Task):
     def __init__(self):
         Task.__init__(self)
         self._srpm_mock_initialized = None
-        self._valid_source_htypes = ['md5']
 
     def _json_dumper(self, obj):
         if isinstance(obj, GitRemote):
@@ -60,19 +54,6 @@ class TaskResolve(Task):
         else:
             return obj
 
-    def _get_rpkg(self, distgit, cwd):
-        rpkgconfig = ConfigParser.SafeConfigParser()
-        pkgtype = 'fedpkg'
-        # Yes, awful hack.
-        if distgit['src'].url.find('pkgs.devel.redhat.com') != -1:
-            pkgtype = 'rhpkg'
-        rpkgconfig.read('/etc/rpkg/{0}.conf'.format(pkgtype))
-        rpkgconfig.add_section(os.path.basename(cwd))
-        rpkg = cliClient(rpkgconfig, pkgtype)
-        rpkg.do_imports(site=pkgtype)
-        rpkg.args = rpkg.parser.parse_args(['--path=' + cwd, 'sources'])
-        return rpkg
-        
     def _url_to_projname(self, url):
         rcolon = url.rfind(':')
         rslash = url.rfind('/')
@@ -248,38 +229,14 @@ class TaskResolve(Task):
 
         sources_path = distgit_co + '/sources'
         if os.path.exists(sources_path):
-            rpkg = self._get_rpkg(distgit, distgit_co)
-            srcfile = SourcesFile(sources_path, rpkg.cmd.source_entry_type)
-            for entry in srcfile.entries:
-                # For now, enforce this due to paranoia about potential unsafe
-                # code paths.
-                if entry.hashtype not in self._valid_source_htypes:
-                    fatal('Invalid hash type {0}'.format(entry.hashtype))
-                hashtypepath = self.lookaside_mirror + '/' + entry.hashtype
-                ensuredir(hashtypepath)
-
-                # Sanity check
-                assert '/' not in entry.hash
-                assert '/' not in entry.file
-
-                hashprefixpath = hashtypepath + '/' + entry.hash[0:2]
-                ensuredir(hashprefixpath)
-                objectpath = hashprefixpath + '/' + entry.hash[2:]
-
-                objectpath_tmp = objectpath + '.tmp'
-                rmrf(objectpath_tmp)
-
-                if not os.path.exists(objectpath):
-                    print("Downloading source object for {0}: {1}".format(distgit['name'], entry.file))
-                    rpkg.cmd.lookasidecache.download(distgit['name'],
-                                                     entry.file, entry.hash,
-                                                     objectpath_tmp,
-                                                     hashtype=entry.hashtype)
-                    os.rename(objectpath_tmp, objectpath)
-                else:
-                    print("Reusing cached source object for {0}: {1}".format(distgit['name'], entry.file))
-                hardlink_or_copy(objectpath, distgit_co + '/' + entry.file)
-
+            # Exec as an external binary because pyrpkg is python 2 only, and
+            # mock is Python 3 only.  Sigh.
+            subprocess.check_call([PKGLIBDIR + '/rpkg-prep-sources', # pylint: disable=undefined-variable
+                                   '--distgit-name='+distgit['name'],
+                                   '--distgit-url='+distgit['src'].url,
+                                   '--distgit-co='+distgit_co,
+                                   '--lookaside-mirror='+self.lookaside_mirror])
+                     
         shutil.move(distgit_co, self.tmp_snapshotdir + '/' + target)
 
     def _generate_srcsnap(self, component):
