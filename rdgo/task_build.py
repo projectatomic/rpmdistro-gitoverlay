@@ -58,10 +58,10 @@ class TaskBuild(Task):
         retained = []
         for component in snapshot['components']:
             distgit_name = component['pkgname']
-            dpath = builddir + '/' + distgit_name
             cachedstate = newcache[distgit_name]
             cached_dirname = cachedstate['dirname']
-            statusjson = '{0}/{1}/status.json'.format(builddir, cached_dirname)
+            buildpath = builddir + '/' + cached_dirname
+            statusjson = buildpath + '/status.json'
             success = False
             if os.path.isfile(statusjson):
                 with open(statusjson) as f:
@@ -73,8 +73,8 @@ class TaskBuild(Task):
                 else:
                     sublogdir = logdir + '/failed/' + distgit_name
                 ensure_clean_dir(sublogdir)
-                for subname in os.listdir(dpath):
-                    subpath = dpath + '/' + subname
+                for subname in os.listdir(buildpath):
+                    subpath = buildpath + '/' + subname
                     if subname.endswith(('.json', '.log')):
                         shutil.move(subpath, sublogdir + '/' + subname)
             if not success:
