@@ -335,7 +335,7 @@ class TaskResolve(Task):
         with open(ovlpath) as f:
             self._overlay = yaml.load(f)
         if os.path.islink(ovlpath):
-            self._overlay_datadir = os.path.dirname(os.readlink(ovlpath))
+            self._overlay_datadir = os.path.dirname(os.path.realpath(ovlpath))
         else:
             self._overlay_datadir = os.path.dirname(ovlpath)
 
