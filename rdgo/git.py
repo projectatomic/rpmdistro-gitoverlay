@@ -215,7 +215,7 @@ class GitMirror(object):
         assert isinstance(remote, GitRemote)
         url = remote.url
         mirrordir = self._get_mirrordir(url)
-        description = subprocess.check_output(['git', 'describe', '--long', '--abbrev=40', '--always', branch_or_tag],
+        description = subprocess.check_output(['git', 'describe', '--tags', '--long', '--abbrev=40', '--always', branch_or_tag],
                                               cwd=mirrordir).strip()
         if len(description) == 40:
             return [None, description]
