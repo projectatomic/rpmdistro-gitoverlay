@@ -168,16 +168,7 @@ class TaskResolve(BaseTaskResolve):
                 distgit_co = distgit_topdir + '/' + distgit['name']
                 self.mirror.checkout(distgit_src, distgit_rev, distgit_co)
             else:
-                spec_paths = [upstream_co, upstream_co + '/packaging']
-                specbasefn = component['pkgname'] + '.spec'
-                specfn = None
-                for path in spec_paths:
-                    for name in [path + '/' + specbasefn, path + '/' + specbasefn + '.in']:
-                        if os.path.isfile(name):
-                            specfn = name
-                            break
-                    if specfn is not None:
-                        break
+                specfn = self._find_spec(upstream_co)
                 if specfn is None:
                     fatal("Failed to find .spec (or .spec.in) file")
                 if specfn.endswith('.in'):
