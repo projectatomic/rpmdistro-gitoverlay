@@ -16,6 +16,6 @@ ENTRYPOINT ["rpmdistro-gitoverlay"]
 
 # Usage examples:
 #  (Note we need --privileged since mock uses container functions internally)
-#  alias rdgo='docker run --privileged -v /path/to/rdgo/:/srv cgwalters/rpmdistro-gitoverlay'
+#  alias rdgo='docker run -ti --rm --privileged -v /path/to/rdgo/:/srv cgwalters/rpmdistro-gitoverlay'
 #  rdgo init
 #  rdgo resolve --fetch-all -b
