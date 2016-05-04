@@ -17,7 +17,6 @@
 
 import os
 import yaml
-import glob
 import copy
 
 from .utils import fatal
