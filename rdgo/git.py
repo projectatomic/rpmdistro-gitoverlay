@@ -210,7 +210,7 @@ class GitMirror(object):
             run_sync(['git', 'config', '-f', '.gitmodules',
                       config_key, 'file://' + sub_mirrordir],
                      cwd=checkout)
-            run_sync(['git', 'submodule', 'update', '--init', module.name], cwd=checkout)
+            run_sync(['git', 'submodule', '--quiet', 'update', '--init', module.name], cwd=checkout)
             self._process_checkout_submodules(checkout + '/' + module.name, module.url)
 
     def checkout(self, remote, branch_or_tag, dest):
@@ -219,7 +219,7 @@ class GitMirror(object):
         assert isinstance(remote, GitRemote)
         url = remote.url
         mirrordir = self._get_mirrordir(url)
-        run_sync(['git', 'clone', '-s', '--origin', 'localmirror', mirrordir, dest])
+        run_sync(['git', 'clone', '-q', '-s', '--origin', 'localmirror', mirrordir, dest])
         run_sync(['git', 'checkout', '-q', branch_or_tag], cwd=dest)
         self._process_checkout_submodules(dest, url)
         return dest
