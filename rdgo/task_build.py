@@ -53,11 +53,13 @@ class TaskBuild(Task):
         h.update(serialized)
         return h.hexdigest()
 
-    def _postprocess_results(self, builddir, snapshot=None, newcache=None, logdir=None):
+    def _postprocess_results(self, builddir, snapshot=None, needed_builds=None, newcache=None, logdir=None):
         # We always dump the partial build results, so the next build can pick them up
         retained = []
         for component in snapshot['components']:
             distgit_name = component['pkgname']
+            if distgit_name not in needed_builds:
+                continue
             cachedstate = newcache[distgit_name]
             cached_dirname = cachedstate['dirname']
             buildpath = builddir + '/' + cached_dirname
@@ -144,7 +146,7 @@ class TaskBuild(Task):
         old_component_count = len(oldcache)
         new_component_count = len(snapshot['components'])
 
-        need_build = False
+        needed_builds = set()
         need_createrepo = old_component_count != new_component_count
         for component in snapshot['components']:
             component_hash = self._json_hash(component)
@@ -181,18 +183,19 @@ class TaskBuild(Task):
             newcache[distgit_name] = {'hashv0': component_hash,
                                       'dirname': srcsnap.replace('.srcsnap','')}
             pkglist.append(self.snapshotdir + '/' + srcsnap + '/')
-            need_build = True
+            needed_builds.add(distgit_name)
             need_createrepo = True
 
         # At this point we've consumed any previous partial results, so clean up the dir.
         rmrf(self.partialbuilddir)
 
-        if need_build:
+        if len(needed_builds) > 0:
             mc = MockChain(root_mock, self.newbuilddir)
             rc = mc.build(pkglist)
             if opts.logdir is not None:
                 ensure_clean_dir(opts.logdir)
-            self._postprocess_results(self.newbuilddir, snapshot=snapshot, newcache=newcache, logdir=opts.logdir)
+            self._postprocess_results(self.newbuilddir, snapshot=snapshot, needed_builds=needed_builds,
+                                      newcache=newcache, logdir=opts.logdir)
             with open(newcache_path, 'w') as f:
                 json.dump(newcache, f, sort_keys=True)
             if rc != 0:
@@ -202,7 +205,7 @@ class TaskBuild(Task):
 
         if need_createrepo:
             run_sync(['createrepo_c', '--no-database', '--update', '.'], cwd=self.newbuilddir)
-            if not need_build:
+            if len(needed_builds) == 0:
                 with open(newcache_path, 'w') as f:
                     json.dump(newcache, f, sort_keys=True)
 
