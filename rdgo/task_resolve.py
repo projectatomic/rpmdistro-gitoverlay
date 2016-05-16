@@ -20,6 +20,8 @@ import json
 import argparse
 import subprocess
 import errno
+import copy
+import sys
 import shutil
 import tempfile
 
@@ -193,6 +195,8 @@ class TaskResolve(BaseTaskResolve):
         parser.add_argument('--fetch-all', action='store_true', help='Fetch all git repositories')
         parser.add_argument('-f', '--fetch', action='append', default=[],
                             help='Fetch the specified git repository')
+        parser.add_argument('--fetch-if-contains-giturl', action='store',
+                            help='Fetch the specified git URL if it is in the overlay, otherwise exit 77')
         parser.add_argument('--touch-if-changed', action='store', default=None,
                             help='Create or update timestamp on target path if a change occurred')
         parser.add_argument('-b', '--build', action='store_true', 
@@ -216,7 +220,25 @@ class TaskResolve(BaseTaskResolve):
 
         ensuredir(self.lookaside_mirror)
 
-        expanded = self._expand_overlay(fetchall=opts.fetch_all, fetch=opts.fetch)
+        if opts.fetch_if_contains_giturl is not None:
+            to_fetch = []
+            tmp_expanded = copy.deepcopy(self._overlay)
+            for component in tmp_expanded['components']:
+                self._expand_component(component)
+                src = component.get('src')
+                if src is None:
+                    continue
+                if src.url == opts.fetch_if_contains_giturl:
+                    to_fetch.append(component['pkgname'])
+            if len(to_fetch) == 0:
+                print("No components matched src.url={}".format(opts.fetch_if_contains_giturl))
+                sys.exit(77)
+            print("Resolved URL {} to components: ".format(opts.fetch_if_contains_giturl))
+            for name in to_fetch:
+                print("  " + name)
+            expanded = self._expand_overlay(fetchall=False, fetch=to_fetch)
+        else:
+            expanded = self._expand_overlay(fetchall=opts.fetch_all, fetch=opts.fetch)
 
         for component in expanded['components']:
             srcsnap = self._generate_srcsnap(component)
