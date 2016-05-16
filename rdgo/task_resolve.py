@@ -193,6 +193,14 @@ class TaskResolve(BaseTaskResolve):
         parser.add_argument('--fetch-all', action='store_true', help='Fetch all git repositories')
         parser.add_argument('-f', '--fetch', action='append', default=[],
                             help='Fetch the specified git repository')
+        parser.add_argument('--override-giturl', action='store',
+                            help='If the provided git URL if it is in the overlay, prepare to override it, otherwise exit 77')
+        parser.add_argument('--override-gitbranch', action='store',
+                            help='Use with --override-giturl to specify a branch')
+        parser.add_argument('--override-gitrepo-from', action='store',
+                            help='Pull from this local git repository')
+        parser.add_argument('--override-gitrepo-from-rev', action='store',
+                            help='Use with --override-gitrepo-from to specify an expected revision')
         parser.add_argument('--touch-if-changed', action='store', default=None,
                             help='Create or update timestamp on target path if a change occurred')
         parser.add_argument('-b', '--build', action='store_true', 
@@ -216,7 +224,11 @@ class TaskResolve(BaseTaskResolve):
 
         ensuredir(self.lookaside_mirror)
 
-        expanded = self._expand_overlay(fetchall=opts.fetch_all, fetch=opts.fetch)
+        expanded = self._expand_overlay(fetchall=opts.fetch_all, fetch=opts.fetch,
+                                        override_giturl=opts.override_giturl,
+                                        override_gitbranch=opts.override_gitbranch,
+                                        override_gitrepo_from=opts.override_gitrepo_from,
+                                        override_gitrepo_from_rev=opts.override_gitrepo_from_rev)
 
         for component in expanded['components']:
             srcsnap = self._generate_srcsnap(component)
