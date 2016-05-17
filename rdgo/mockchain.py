@@ -42,7 +42,6 @@ from .utils import fatal, ensuredir, run_sync, rmrf
 __VERSION__ = "unreleased_version"
 SYSCONFDIR = os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "etc")
 PYTHONDIR = os.path.dirname(os.path.realpath(sys.argv[0]))
-PKGPYTHONDIR = os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "mockbuild")
 MOCKCONFDIR = os.path.join(SYSCONFDIR, "mock")
 # end build system subs
 
@@ -143,8 +142,19 @@ class MockChain(object):
 
         self._config_path = None
 
+        mock_pkgpythondir = None
+        r = re.compile('^PKGPYTHONDIR="([^"]+)"')
+        with open('/usr/sbin/mock') as f:
+            for line in f:
+                m = r.search(line)
+                if m:
+                    mock_pkgpythondir = m.group(1)
+                    break
+        if mock_pkgpythondir is None:
+            fatal("Failed to parse PKGPYTHONDIR from /usr/sbin/mock")
+
         global config_opts
-        config_opts = mockbuild.util.load_config('/etc/mock', self.root, None, __VERSION__, PKGPYTHONDIR)
+        config_opts = mockbuild.util.load_config('/etc/mock', self.root, None, __VERSION__, mock_pkgpythondir)
 
         self._uniqueext = 'mockchain-{}'.format(os.getpid())
 
