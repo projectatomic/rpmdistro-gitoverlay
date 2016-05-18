@@ -18,9 +18,8 @@ script:
   - env PATH=${HOME}/.local/bin:${PATH} make check
 
 notifications:
-  # This is Colin's personal Homu instance.  We will
-  # also work on productizing this in Project Atomic.
-  webhooks: http://escher.verbum.org:54856/travis
+  # This is Colin's personal Homu instance.
+  webhooks: http://escher.verbum.org:54857/travis
   email: false
 
 branches:
