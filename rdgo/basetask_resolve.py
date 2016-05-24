@@ -80,7 +80,8 @@ class BaseTaskResolve(Task):
 
     def _expand_component(self, component):
         for key in component:
-            if key not in ['src', 'spec', 'distgit', 'tag', 'branch', 'freeze', 'self-buildrequires']:
+            if key not in ['src', 'spec', 'distgit', 'tag', 'branch', 'freeze', 'self-buildrequires',
+                           'rpmwith', 'rpmwithout']:
                 fatal("Unknown key {0} in component: {1}".format(key, component))
         # 'src' and 'distgit' mappings
         src = component.get('src')
@@ -138,6 +139,10 @@ class BaseTaskResolve(Task):
         for key in distgit:
             if key not in ['patches', 'src', 'name', 'tag', 'branch', 'freeze']:
                 fatal("Unknown key {0} in component/distgit: {1}".format(key, component))
+
+        # rpmbuild --with and --without
+        self._ensure_key_or(component, 'rpmwith', [])
+        self._ensure_key_or(component, 'rpmwithout', [])
 
         self._ensure_key_or(component, 'pkgname', pkgname_default)
 

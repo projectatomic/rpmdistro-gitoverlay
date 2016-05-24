@@ -27,6 +27,7 @@ except ImportError:
     from urlparse import urlsplit  # noqa
 import sys
 import subprocess
+import collections
 import json
 import os
 import tempfile
@@ -47,6 +48,8 @@ MOCKCONFDIR = os.path.join(SYSCONFDIR, "mock")
 
 # This variable is global as it's set by `eval`ing the mock config file =(
 config_opts = {}
+
+SRPMBuild = collections.namedtuple('SRPMBuild', ['filename', 'rpmwith', 'rpmwithout'])
 
 def log(msg):
     print(msg)
@@ -202,13 +205,13 @@ class MockChain(object):
         # returns 1, cmd, out, err  = success
         # returns 2, None, None, None = already built
 
-        is_srcsnap = pkg.endswith('/')
+        is_srcsnap = pkg.filename.endswith('/')
 
         if is_srcsnap:
-            pdn = os.path.basename(pkg.replace('.srcsnap/', ''))
+            pdn = os.path.basename(pkg.filename.replace('.srcsnap/', ''))
             srpm = None
         else:
-            pdn = os.path.basename(pkg).replace('.temp.src.rpm', '')
+            pdn = os.path.basename(pkg.filename).replace('.temp.src.rpm', '')
             srpm = pkg
         resdir = '%s/%s' % (self.local_repo, pdn)
         resdir = os.path.normpath(resdir)
@@ -226,8 +229,8 @@ class MockChain(object):
             os.unlink(fail_file)
 
         if is_srcsnap:
-            pkgdir = pkg[:-1]
-            spec_fn = pkg + '/' + specfile.spec_fn(spec_dir=pkg)
+            pkgdir = pkg.filename[:-1]
+            spec_fn = pkg.filename + '/' + specfile.spec_fn(spec_dir=pkg.filename)
             self._run_mock_sync('--old-chroot',
                                 '--yum',
                                 '--buildsrpm',
@@ -248,6 +251,10 @@ class MockChain(object):
                         '--yum',
                         '--resultdir', resdir,
                         '--no-cleanup-after'])
+        for rpmwith in pkg.rpmwith:
+            mockcmd.append('--with=' + rpmwith)
+        for rpmwithout in pkg.rpmwithout:
+            mockcmd.append('--without=' + rpmwithout)
         mockcmd.append(srpm)
         print('Executing: {0}'.format(subprocess.list2cmdline(mockcmd)))
         cmd = subprocess.Popen(mockcmd,
@@ -265,11 +272,16 @@ class MockChain(object):
         return ret, cmd, out, err
 
     def build(self, pkgs):
+        _pkgs = []
         for pkg in pkgs:
-            if not pkg.endswith(('.src.rpm', '/')):
+            if not isinstance(pkg, SRPMBuild):
+                pkg = SRPMBuild(pkg, [], [])
+            _pkgs.append(pkg)
+        pkgs = _pkgs
+        for pkg in pkgs:
+            if not pkg.filename.endswith(('.src.rpm', '/')):
                 fatal("%s doesn't appear to be an rpm or srcsnap directory - skipping" % pkg)
 
-        downloaded_pkgs = {}
         built_pkgs = []
         try_again = True
         to_be_built = pkgs
@@ -279,12 +291,12 @@ class MockChain(object):
             num_of_tries += 1
             failed = []
             for pkg in to_be_built:
-                log("Start build: %s" % pkg)
+                log("Start build: {}".format(pkg))
                 ret, cmd, out, err = self.do_one_build(pkg)
-                log("End build: %s" % pkg)
+                log("End build: {}".format(pkg))
                 if ret == 0:
                     failed.append(pkg)
-                    log("Error building %s." % os.path.basename(pkg))
+                    log("Error building %s" % os.path.basename(pkg.filename))
                     if len(pkgs) > 1:
                         log("Will try to build again (if some other package will succeed).")
                         if 'PRESERVE_TEMP' not in os.environ:
@@ -293,13 +305,13 @@ class MockChain(object):
                         if 'PRESERVE_TEMP' not in os.environ:
                             self.do_clean_root()
                 elif ret == 1:
-                    log("Success building %s" % os.path.basename(pkg))
+                    log("Success building %s" % os.path.basename(pkg.filename))
                     self.do_clean_root()
                     built_pkgs.append(pkg)
                     # createrepo with the new pkgs
                     createrepo(self.local_repo)
                 elif ret == 2:
-                    log("Skipping already built pkg %s" % os.path.basename(pkg))
+                    log("Skipping already built pkg %s" % os.path.basename(pkg.filename))
 
             if failed:
                 if len(failed) != len(to_be_built):
@@ -310,10 +322,7 @@ class MockChain(object):
                 else:
                     log("Tried %s times - following pkgs could not be successfully built:" % num_of_tries)
                     for pkg in failed:
-                        msg = pkg
-                        if pkg in downloaded_pkgs:
-                            msg = downloaded_pkgs[pkg]
-                        log(msg)
+                        log(pkg)
                     try_again = False
                     return_code = 2
             else:

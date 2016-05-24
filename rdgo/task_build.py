@@ -28,7 +28,7 @@ from .swappeddir import SwappedDirectory
 from .utils import log, fatal, rmrf, ensure_clean_dir, run_sync
 from .task import Task
 from .git import GitMirror
-from .mockchain import MockChain
+from .mockchain import MockChain, SRPMBuild
 
 def require_key(conf, key):
     try:
@@ -182,7 +182,8 @@ class TaskBuild(Task):
             srcsnap = component['srcsnap']
             newcache[distgit_name] = {'hashv0': component_hash,
                                       'dirname': srcsnap.replace('.srcsnap','')}
-            pkglist.append(self.snapshotdir + '/' + srcsnap + '/')
+            pkglist.append(SRPMBuild(self.snapshotdir + '/' + srcsnap + '/',
+                                     component['rpmwith'], component['rpmwithout']))
             needed_builds.add(distgit_name)
             need_createrepo = True
 
