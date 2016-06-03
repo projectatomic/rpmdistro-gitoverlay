@@ -75,8 +75,9 @@ def generate_repo_id(baseurl):
     REPOS_ID.append(repoid)
     return repoid
 
-def add_local_repo(infile, destfile, baseurl, repoid=None):
-    """take a mock chroot config and add a repo to it's yum.conf
+def hackily_mutate_mock_config(infile, destfile, baseurl, repoid=None,
+                               append_chroot_install=[]):
+    """take a mock chroot config and add a repo to its yum.conf
        infile = mock chroot config file
        destfile = where to save out the result
        baseurl = baseurl of repo you wish to add"""
@@ -93,6 +94,8 @@ def add_local_repo(infile, destfile, baseurl, repoid=None):
     # Ensure we're using the priorities plugin
     config_opts['priorities.conf'] = '\n[main]\nenabled=1\n'
     config_opts['yum.conf'] = config_opts['yum.conf'].replace('[main]\n', '[main]\nplugins=1\n')
+    if len(append_chroot_install) > 0:
+        config_opts['chroot_setup_cmd'] += (" " + " ".join(append_chroot_install))
 
     if not repoid:
         repoid = generate_repo_id(baseurl)
@@ -139,7 +142,7 @@ def postprocess_mock_resultdir(resdir, success):
         json.dump({'status': status}, f)
 
 class MockChain(object):
-    def __init__(self, root, local_repo):
+    def __init__(self, root, local_repo, append_chroot_install=[]):
         self.root = root
         self.local_repo = local_repo
 
@@ -175,7 +178,8 @@ class MockChain(object):
 
         # Generate a new config
         self._mockcfg_path = os.path.join(self._config_path, "{0}.cfg".format(config_opts['chroot_name']))
-        add_local_repo(config_opts['config_file'], self._mockcfg_path, 'file://' + self.local_repo, 'local_build_repo')
+        hackily_mutate_mock_config(config_opts['config_file'], self._mockcfg_path, 'file://' + self.local_repo, 'local_build_repo',
+                                   append_chroot_install)
 
         # these files needed from the mock.config dir to make mock run
         for fn in ['site-defaults.cfg', 'logging.ini']:
@@ -184,9 +188,6 @@ class MockChain(object):
 
         # createrepo on it
         createrepo(self.local_repo)
-
-    def add_repo(self, url):
-        add_local_repo(config_opts['config_file'], self._mockcfg_path, url)
 
     def _get_mock_base_argv(self):
         return ['/usr/bin/mock',

@@ -53,12 +53,18 @@ class TaskBuild(Task):
         h.update(serialized)
         return h.hexdigest()
 
+    def _component_name_in_list(self, name, buildlist):
+        for (component, build) in buildlist:
+            if component['pkgname'] == name:
+                return True
+        return False
+
     def _postprocess_results(self, builddir, snapshot=None, needed_builds=None, newcache=None, logdir=None):
         # We always dump the partial build results, so the next build can pick them up
         retained = []
         for component in snapshot['components']:
             distgit_name = component['pkgname']
-            if distgit_name not in needed_builds:
+            if not self._component_name_in_list(distgit_name, needed_builds):
                 continue
             cachedstate = newcache[distgit_name]
             cached_dirname = cachedstate['dirname']
@@ -128,8 +134,6 @@ class TaskBuild(Task):
                 contextdir = os.path.dirname(os.path.realpath(self.workdir + '/overlay.yml'))
                 root_mock = os.path.join(contextdir, root_mock)
 
-        pkglist = []
-
         oldcache_path = self.builddir.path + '/buildstate.json'
         oldcache = {}
         if os.path.exists(oldcache_path):
@@ -146,7 +150,7 @@ class TaskBuild(Task):
         old_component_count = len(oldcache)
         new_component_count = len(snapshot['components'])
 
-        needed_builds = set()
+        needed_builds = []
         need_createrepo = old_component_count != new_component_count
         for component in snapshot['components']:
             component_hash = self._json_hash(component)
@@ -182,17 +186,35 @@ class TaskBuild(Task):
             srcsnap = component['srcsnap']
             newcache[distgit_name] = {'hashv0': component_hash,
                                       'dirname': srcsnap.replace('.srcsnap','')}
-            pkglist.append(SRPMBuild(self.snapshotdir + '/' + srcsnap + '/',
-                                     component['rpmwith'], component['rpmwithout']))
-            needed_builds.add(distgit_name)
+            needed_builds.append((component, SRPMBuild(self.snapshotdir + '/' + srcsnap + '/',
+                                                       component['rpmwith'], component['rpmwithout'])))
             need_createrepo = True
 
         # At this point we've consumed any previous partial results, so clean up the dir.
         rmrf(self.partialbuilddir)
 
         if len(needed_builds) > 0:
-            mc = MockChain(root_mock, self.newbuilddir)
-            rc = mc.build(pkglist)
+            srpmroot_builds = []
+            regbuilds = []
+            for (component, build) in needed_builds:
+                if component.get('srpmroot') is True:
+                    srpmroot_builds.append((component, build))
+                else:
+                    regbuilds.append((component, build))
+            if len(srpmroot_builds) > 0:
+                print("Performing SRPM root bootstrap for {}".format([x[0]['pkgname'] for x in srpmroot_builds]))
+                mc = MockChain(root_mock, self.newbuilddir)
+                rc = mc.build([x[1] for x in srpmroot_builds])
+                if rc != 0:
+                    fatal("{0} failed: bootstrap mockchain exited with code {1}".format(os.path.basename(self.newbuilddir), rc))
+            # This assumes that the srpm generates a binary of the same name.
+            srpmroot_pkgnames = []
+            for component in snapshot['components']:
+                if component.get('srpmroot') is True:
+                    srpmroot_pkgnames.append(component['pkgname'])
+            print("Extra SRPM root packages: {}".format(srpmroot_pkgnames))
+            mc = MockChain(root_mock, self.newbuilddir, append_chroot_install=srpmroot_pkgnames)
+            rc = mc.build([x[1] for x in regbuilds])
             if opts.logdir is not None:
                 ensure_clean_dir(opts.logdir)
             self._postprocess_results(self.newbuilddir, snapshot=snapshot, needed_builds=needed_builds,
