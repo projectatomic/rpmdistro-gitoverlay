@@ -84,7 +84,7 @@ class TaskBuild(Task):
                 for subname in os.listdir(buildpath):
                     subpath = buildpath + '/' + subname
                     if subname.endswith(('.json', '.log')):
-                        shutil.move(subpath, sublogdir + '/' + subname)
+                        shutil.copy(subpath, sublogdir + '/' + subname)
             if not success:
                 del newcache[distgit_name]
             else:
