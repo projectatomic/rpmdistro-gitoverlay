@@ -59,7 +59,12 @@ class TaskResolve(BaseTaskResolve):
 
     def _rpm_verrel(self, component, upstream_tag, upstream_rev, distgit_desc):
         rpm_version = upstream_tag or '0'
-        rpm_version = self._strip_all_prefixes(rpm_version, ['v', component['pkgname'] + '-'])
+        # Some common patterns out there.
+        known_tag_prefixes = ['v']
+        for prefix in [component['pkgname'],component['pkgname'].upper()]:
+            for suffix in ['-', '_']:
+                known_tag_prefixes.append(prefix + suffix)
+        rpm_version = self._strip_all_prefixes(rpm_version, known_tag_prefixes)
         rpm_version = rpm_version.replace('-', '.')
         gitdesc = upstream_rev or ''
         if distgit_desc is not None:
