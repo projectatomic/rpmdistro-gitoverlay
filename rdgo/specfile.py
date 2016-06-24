@@ -310,10 +310,10 @@ class Spec(object):
         return self.set_release(release, milestone=milestone, postfix=postfix)
 
     def delete_changelog(self):
-        i = self._txt.find('\n%changelog')
+        i = self.txt.find('\n%changelog')
         if i < 0:
             return
-        self._txt = self._txt[0:i+1]
+        self._txt = self.txt[0:i+1]
 
     def new_changelog_entry(self, user, email, changes=[]):
         changes_str = "\n".join(map(lambda x: "- %s" % x, changes)) + "\n"
