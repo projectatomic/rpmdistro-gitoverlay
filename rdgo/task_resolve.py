@@ -58,6 +58,14 @@ class TaskResolve(BaseTaskResolve):
         return s
 
     def _rpm_verrel(self, component, upstream_tag, upstream_rev, distgit_desc):
+        override_version = component.get('override-version')
+        gitdesc = upstream_rev or ''
+        if distgit_desc is not None:
+            if gitdesc != '':
+                gitdesc += '.'
+            gitdesc += distgit_desc.replace('-', '.')
+        if override_version is not None:
+            return [override_version, gitdesc]
         rpm_version = upstream_tag or '0'
         # Some common patterns out there.
         known_tag_prefixes = ['v']
@@ -66,11 +74,6 @@ class TaskResolve(BaseTaskResolve):
                 known_tag_prefixes.append(prefix + suffix)
         rpm_version = self._strip_all_prefixes(rpm_version, known_tag_prefixes)
         rpm_version = rpm_version.replace('-', '.')
-        gitdesc = upstream_rev or ''
-        if distgit_desc is not None:
-            if gitdesc != '':
-                gitdesc += '.'
-            gitdesc += distgit_desc.replace('-', '.')
         return [rpm_version, gitdesc]
 
     def _generate_srcsnap_impl(self, component, upstream_tag, upstream_rev, upstream_co,
