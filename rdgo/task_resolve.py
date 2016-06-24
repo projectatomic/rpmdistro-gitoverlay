@@ -103,7 +103,8 @@ class TaskResolve(BaseTaskResolve):
             spec.set_tag(source_tag, tarname)
             spec.set_tag('Version', rpm_version)
             spec.set_setup_dirname(tar_dirname)
-        spec.set_tag('Release', rpm_release + '%{?dist}')
+            spec.set_tag('Release', rpm_release + '%{?dist}')
+
         # Anything useful there you should find in upstream dist-git or equivalent.
         spec.delete_changelog()
         # Forcibly override
