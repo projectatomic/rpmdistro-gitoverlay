@@ -202,10 +202,6 @@ class MockChain(object):
         self._run_mock_sync('--clean')
 
     def do_one_build(self, pkg):
-        # returns 0, cmd, out, err = failure
-        # returns 1, cmd, out, err  = success
-        # returns 2, None, None, None = already built
-
         is_srcsnap = pkg.filename.endswith('/')
 
         if is_srcsnap:
@@ -223,7 +219,7 @@ class MockChain(object):
         fail_file = resdir + '/fail'
 
         if os.path.exists(success_file):
-            return 2, None, None, None
+            return 2
 
         # clean it up if we're starting over :)
         if os.path.exists(fail_file):
@@ -258,10 +254,8 @@ class MockChain(object):
             mockcmd.append('--without=' + rpmwithout)
         mockcmd.append(srpm)
         print('Executing: {0}'.format(subprocess.list2cmdline(mockcmd)))
-        cmd = subprocess.Popen(mockcmd,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE)
-        out, err = cmd.communicate()
+        cmd = subprocess.Popen(mockcmd)
+        cmd.wait()
         success = cmd.returncode == 0
         postprocess_mock_resultdir(resdir, success)
 
@@ -269,8 +263,7 @@ class MockChain(object):
             if 'PRESERVE_TEMP' not in os.environ:
                 rmrf(srpm)
 
-        ret = 1 if success else 0
-        return ret, cmd, out, err
+        return 1 if success else 0
 
     def build(self, pkgs):
         _pkgs = []
@@ -293,7 +286,7 @@ class MockChain(object):
             failed = []
             for pkg in to_be_built:
                 log("Start build: {}".format(pkg))
-                ret, cmd, out, err = self.do_one_build(pkg)
+                ret = self.do_one_build(pkg)
                 log("End build: {}".format(pkg))
                 if ret == 0:
                     failed.append(pkg)
