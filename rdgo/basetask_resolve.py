@@ -218,8 +218,24 @@ class BaseTaskResolve(Task):
         return expanded
 
     def _find_spec(self, upstream_co):
+        basename = os.path.basename(upstream_co)
+        candidates = []
         for (dirpath, dirnames, filenames) in os.walk(upstream_co):
             for fname in filenames:
                 if not fname.endswith(('.spec', '.spec.in')):
                     continue
-                return dirpath + '/' + fname
+                candidates.append(dirpath + '/' + fname)
+        if len(candidates) == 0:
+            return None
+        firstcanddiate = candidates[0]
+        if len(candidates) == 1:
+            return firstcanddiate
+        # If we have multiple specs, try finding one that matches
+        # the project name
+        for candidate in candidates:
+            candidatebase = os.path.basename(candidate)
+            if candidatebase.startswith(basename):
+                print("Matched spec {} with bn {}".format(candidate, basename))
+                return candidate
+        print("Multiple specs, no prefix match on {} returning {}".format(basename, candidates[0]))
+        return firstcanddiate
