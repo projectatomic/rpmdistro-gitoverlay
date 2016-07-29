@@ -218,7 +218,7 @@ class BaseTaskResolve(Task):
         return expanded
 
     def _find_spec(self, upstream_co):
-        basename=os.path.basename(upstream_co)
+        basename = os.path.basename(upstream_co)
         candidates = []
         for (dirpath, dirnames, filenames) in os.walk(upstream_co):
             for fname in filenames:
