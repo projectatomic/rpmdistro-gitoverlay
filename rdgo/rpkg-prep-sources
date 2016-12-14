@@ -80,7 +80,7 @@ class RpkgPrepSources(object):
         parser.add_argument('--distgit-co')
         parser.add_argument('--lookaside-mirror')
 
-        valid_source_htypes = ['md5']
+        valid_source_htypes = ['md5', 'sha512']
 
         opts = parser.parse_args(argv)
 
