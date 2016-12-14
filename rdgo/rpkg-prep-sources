@@ -40,6 +40,10 @@ from pyrpkg.cli import cliClient # pylint: disable=import-error
 from pyrpkg.sources import SourcesFile # pylint: disable=import-error
 
 # Copy of stuff for utils for whatever version of Python
+def fatal(msg):
+    print >>sys.stderr, msg
+    sys.exit(1)
+
 def hardlink_or_copy(src, dest):
     try:
         os.link(src, dest)
