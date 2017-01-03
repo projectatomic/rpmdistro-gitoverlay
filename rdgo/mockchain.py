@@ -150,12 +150,16 @@ class MockChain(object):
 
         mock_pkgpythondir = None
         r = re.compile('^PKGPYTHONDIR="([^"]+)"')
-        with open('/usr/sbin/mock') as f:
-            for line in f:
-                m = r.search(line)
-                if m:
-                    mock_pkgpythondir = m.group(1)
-                    break
+        for d in ['/usr/libexec/mock', '/usr/sbin']:
+            mockpath = d + '/mock'
+            if not os.path.isfile(mockpath):
+                continue
+            with open(mockpath) as f:
+                for line in f:
+                    m = r.search(line)
+                    if m:
+                        mock_pkgpythondir = m.group(1)
+                        break
         if mock_pkgpythondir is None:
             fatal("Failed to parse PKGPYTHONDIR from /usr/sbin/mock")
 
