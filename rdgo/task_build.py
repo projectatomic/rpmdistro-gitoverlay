@@ -50,7 +50,7 @@ class TaskBuild(Task):
         """Kind of a hack, but it works."""
         serialized = json.dumps(dictval, sort_keys=True)
         h = hashlib.sha256()
-        h.update(serialized)
+        h.update(serialized.encode('utf-8'))
         return h.hexdigest()
 
     def _component_name_in_list(self, name, buildlist):

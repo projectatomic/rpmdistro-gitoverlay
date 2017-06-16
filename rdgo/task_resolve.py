@@ -104,6 +104,8 @@ class TaskResolve(BaseTaskResolve):
             if has_zero:
                 source_tag += '0'
             spec.set_tag(source_tag, tarname)
+            # This is a currently ad-hoc convention
+            spec.set_global('commit', upstream_rev)
             spec.set_tag('Version', rpm_version)
             spec.set_setup_dirname(tar_dirname)
             spec.set_tag('Release', rpm_release + '%{?dist}')

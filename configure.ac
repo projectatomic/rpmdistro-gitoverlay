@@ -31,7 +31,7 @@ LT_INIT([disable-static])
 
 PKG_PROG_PKG_CONFIG
 
-AM_PATH_PYTHON
+AM_PATH_PYTHON([3.6])
 
 AC_CONFIG_FILES([
         Makefile

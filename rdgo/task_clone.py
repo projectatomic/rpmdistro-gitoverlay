@@ -45,7 +45,7 @@ class TaskClone(BaseTaskResolve):
         if not opts.full:
             for child in ['snapshot', 'overlay.yml']:
                 os.symlink(opts.srcdir + '/' + child, child)
-            print "Intialized build working directory inherting source from {}".format(opts.srcdir)
+            print("Intialized build working directory inherting source from {}".format(opts.srcdir))
         else:
             for child in ['overlay.yml']:
                 os.symlink(opts.srcdir + '/' + child, child)

@@ -15,6 +15,7 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
+import six
 import os
 import sys
 import re
@@ -33,7 +34,7 @@ class GitRemote(object):
     def to_git_env(self):
         env = {}
         if self.cacertpath is not None:
-            env['GIT_SSL_CAINFO'] = self.cacertpath
+            env['GIT_SSL_CAPATH'] = self.cacertpath
         return env
 
 def path_with_suffix(path, suffix):
@@ -94,19 +95,21 @@ class GitMirror(object):
                 f.write('[url "{0}"]\n  insteadof = {1}:\n'.format(alias['url'], alias['name']))
         os.rename(new, self.gitconfig)
 
-    def _get_mirrordir(self, uri, prefix='', parent=None):
-        colon = uri.find('://')
+    def _get_mirrordir(self, uri, prefix=b'', parent=None):
+        if isinstance(uri, six.text_type):
+            uri = uri.encode()
+        colon = uri.find(b'://')
         if colon >= 0:
             scheme = uri[0:colon]
             rest = uri[colon+3:]
         else:
             raise Exception("Invalid uri {0}".format(uri))
         if prefix:
-            prefix = prefix + '/'
-        return (parent or self.mirrordir) + '/' + prefix + scheme + '/' + rest
+            prefix = prefix + b'/'
+        return ((parent or self.mirrordir.encode()) + b'/' + prefix + scheme + b'/' + rest).decode('UTF-8')
 
     def _git_revparse(self, gitdir, branch):
-        return subprocess.check_output(['git', 'rev-parse', branch], cwd=gitdir).strip()
+        return subprocess.check_output(['git', 'rev-parse', branch], cwd=gitdir).strip().decode('UTF-8')
 
     def _strip_file_url(self, url):
         """Remove the file:// prefix, which causes git to fall back to a
@@ -125,16 +128,16 @@ class GitMirror(object):
         submodules = []
         for line in proc.stdout:
             line = line.strip()
-            if line == '':
+            if line == b'':
                 continue
-            line = line[1:]
+            line = line[1:].decode('UTF-8')
             parts = line.split(' ', 2)
             if len(parts) < 2:
                 continue
             sub_checksum, sub_name = parts[0:2]
             sub_url = subprocess.check_output(['git', 'config', '-f', '.gitmodules',
-                                               'submodule.{0}.url'.format(sub_name)],
-                                              cwd=checkout).strip()
+                                               'submodule.{0}.url'.format(sub_name).encode()],
+                                              cwd=checkout).strip().decode('UTF-8')
             if sub_url.startswith('../'):
                 sub_url = make_absolute_url(uri, sub_url)
             submodules.append(GitSubmodule(sub_checksum, sub_name, sub_url))
@@ -175,6 +178,8 @@ class GitMirror(object):
         tmp_mirror = os.path.dirname(mirrordir) + '/' + os.path.basename(mirrordir) + '.tmp'
         
         rmrf(tmp_mirror)
+        if remote.cacertpath:
+            print("Fetching from {} with CA cert: {}".format(remote.url, remote.cacertpath))
         if not os.path.isdir(mirrordir):
             self._run('clone', '--mirror', self._strip_file_url(url), tmp_mirror,
                       env=remote.to_git_env())
@@ -184,7 +189,7 @@ class GitMirror(object):
             sys.stdout.write(os.path.basename(mirrordir) + ': ')
             self._run('fetch', cwd=mirrordir, env=remote.to_git_env())
         
-        rev = subprocess.check_output(['git', 'rev-parse', branch_or_tag], cwd=mirrordir).strip()
+        rev = subprocess.check_output(['git', 'rev-parse', branch_or_tag], cwd=mirrordir).strip().decode('UTF-8')
 
         # Cache making it more efficient to remirror the same commit
         # multiple times
@@ -231,7 +236,7 @@ class GitMirror(object):
         url = remote.url
         mirrordir = self._get_mirrordir(url)
         description = subprocess.check_output(['git', 'describe', '--tags', '--long', '--abbrev=40', '--always', branch_or_tag],
-                                              cwd=mirrordir).strip()
+                                              cwd=mirrordir).strip().decode('UTF-8')
         if len(description) == 40:
             return [None, description]
         else:

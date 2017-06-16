@@ -16,12 +16,13 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
+import six
 import codecs
 import argparse
-import StringIO
 import os
 import re
 import time
+from six import StringIO
 
 import rpm
 
@@ -116,6 +117,11 @@ class Spec(object):
                                r'\g<1>%s' % value, self.txt, flags=re.M)
         if n == 0:
             self._txt = tag + ':' + value + '\n' + self._txt
+
+    def set_global(self, v, value):
+        gre = r'^(%global {}\s+)([a-e0-9]+)'.format(re.escape(v))
+        self._txt, n = re.subn(gre, r'\1(?:%s)' % value, self.txt, flags=re.M)
+
 
     def get_patches_base(self, expand_macros=False):
         """Return a tuple (version, number_of_commits) that are parsed
@@ -226,13 +232,13 @@ class Spec(object):
         return 'rpm'
 
     def set_setup_dirname(self, srcname, srcn=0):
-        newtxt = StringIO.StringIO()
+        newtxt = StringIO()
         ws_re = re.compile(r'\s+')
         matched = False
         setupparser = argparse.ArgumentParser()
         setupparser.add_argument('-n', action='store_true')
         setupparser.add_argument('-b', action='store', default=str(srcn))
-        for line in StringIO.StringIO(self._txt):
+        for line in StringIO(self._txt):
             if not (line.startswith('%setup') or
                     line.startswith('%autosetup')):
                 newtxt.write(line)

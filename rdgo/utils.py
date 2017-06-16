@@ -15,6 +15,7 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
+import six
 import sys
 import stat
 import shutil
@@ -23,7 +24,7 @@ import subprocess
 import os
 
 def fatal(msg):
-    print >>sys.stderr, msg
+    sys.stderr.write(msg + '\n')
     sys.exit(1)
 
 def log(msg):
@@ -34,9 +35,17 @@ def log(msg):
 
 def run_sync(args, **kwargs):
     """Wraps subprocess.check_call(), logging the command line too."""
-    if isinstance(args, str) or isinstance(args, unicode):
+    if isinstance(args, six.string_types):
         argstr = args
     else:
+        uargs = []
+        for arg in args:
+            if isinstance(arg, six.binary_type):
+                uargs.append(arg.decode('UTF-8'))
+            else:
+                uargs.append(arg)
+        args = uargs
+        print("{}".format(args))
         argstr = subprocess.list2cmdline(args)
     log("Running: {0}".format(argstr))
     subprocess.check_call(args, **kwargs)

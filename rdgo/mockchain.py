@@ -233,7 +233,6 @@ class MockChain(object):
             pkgdir = pkg.filename[:-1]
             spec_fn = pkg.filename + '/' + specfile.spec_fn(spec_dir=pkg.filename)
             self._run_mock_sync('--old-chroot',
-                                '--yum',
                                 '--buildsrpm',
                                 '--spec', spec_fn,
                                 '--sources', pkgdir,
@@ -249,8 +248,7 @@ class MockChain(object):
 
         mockcmd = self._get_mock_base_argv()
         mockcmd.extend(['--nocheck',  # Tests should run after builds
-                        '--yum',
-                        '--old-chroot', # Temporary for https://bugzilla.redhat.com/show_bug.cgi?id=1450516#c12
+                        '--old-chroot', # Since we'll be running in a container
                         '--resultdir', resdir,
                         '--no-cleanup-after'])
         for rpmwith in pkg.rpmwith:
