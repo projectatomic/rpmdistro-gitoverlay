@@ -117,6 +117,11 @@ class Spec(object):
         if n == 0:
             self._txt = tag + ':' + value + '\n' + self._txt
 
+    def set_global(self, k, value):
+        self._txt, n = re.subn(r'^(%%global\s+%s\s*) ([a-f0-9]+)' % (k,),
+                               r'\1 %s' % value, self.txt, flags=re.M)
+        print("{} -> {} subs: {}".format(k, value, n))
+
     def get_patches_base(self, expand_macros=False):
         """Return a tuple (version, number_of_commits) that are parsed
         from the patches_base in the specfile.
