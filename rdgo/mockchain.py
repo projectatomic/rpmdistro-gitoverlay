@@ -250,6 +250,7 @@ class MockChain(object):
         mockcmd = self._get_mock_base_argv()
         mockcmd.extend(['--nocheck',  # Tests should run after builds
                         '--yum',
+                        '--old-chroot', # Temporary for https://bugzilla.redhat.com/show_bug.cgi?id=1450516#c12
                         '--resultdir', resdir,
                         '--no-cleanup-after'])
         for rpmwith in pkg.rpmwith:
