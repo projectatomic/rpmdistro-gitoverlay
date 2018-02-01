@@ -13,6 +13,7 @@ BuildRequires: git
 Requires: python
 Requires: pygobject2
 Requires: PyYAML
+Requires: python3-PyYAML
 Requires: pygobject3
 Requires: python-six
 Requires: rpm-build
