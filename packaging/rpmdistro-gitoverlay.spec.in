@@ -10,6 +10,7 @@ BuildArch: noarch
 BuildRequires: autoconf automake libtool
 BuildRequires: git
 
+Requires: git
 Requires: python
 Requires: pygobject2
 Requires: PyYAML
