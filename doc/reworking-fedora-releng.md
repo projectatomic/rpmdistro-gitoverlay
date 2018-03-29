@@ -42,19 +42,19 @@ style model where other achitectures "catch up" is significantly more scalable.
 Release engineering ⇆ "QA" ⇆ development
 ---
 
-People who are doing "QA" must have the ability to change how release engineering
-works.  Similarly, a lot of developers understand their pain points and are
-in a very good position to change release engineering to fix issues.
-Similarly, it makes no sense for someone to do release engineering but *not*
-interact with testing systems (and development).
+People who are doing "QA" must have the ability to change how release
+engineering works. A lot of developers understand their pain points and are in a
+very good position to change release engineering to fix issues. And it makes no
+sense for someone to do release engineering but *not* interact with testing
+systems (and development).
 
-Rotate people among focus on these roles, and blur the systems as much as possible.
+*Rotate people* among focus on these roles, and blur the systems as much as possible.
 
-Specifically in Fedora, it makes *no sense* to generate a "compose" and have it
-just sit there if it's known broken in a fundamental way. There must be a *reaction*
-to tests failing on it. A simple strawman is to have e.g. `compose/raw` and
-`compose/smoketested` etc.  Like what Bodhi does with `updates` and
-`updates-testing`.
+Specifically in Fedora where "release engineering" makes sure the "compose" is
+generated, and "QA" tests it. And it just sits there if it's known broken in
+a fundamental way. There must be a *reaction* to tests failing on it. A simple
+strawman is to have e.g. `compose/raw` and `compose/smoketested` etc. Like what
+Bodhi does with `updates` and `updates-testing`.
 
 Another example of a "reaction" to a test failure of course is to *revert* the broken
 change.  That leads to:
@@ -90,3 +90,29 @@ git.
 
 If we *start* from the upstream sources, then we can always generate a spec
 file from it.
+
+PRs-on-distgit
+---
+
+The focus of our testing and building should be on the "github style" model
+of submitting a pull request, and having test systems be able to report into
+it.
+
+This would work a lot better if rather than having one git repository per
+package, we had one or a series of layers.  See for example:
+
+ - https://github.com/NixOS/nixpkgs
+ - https://github.com/openembedded/openembedded-core
+ - https://github.com/clearlinux/clr-bundles
+ - https://github.com/coreos/coreos-overlay/
+
+Blend upstream testing and downstream testing
+---
+
+In practice today, where CI exists at all, very very few upstream projects have
+access to non-x86_64 architectures.  The first time then many things get
+built or tested on e.g. `aarch64` will be when they hit Koji.
+
+Koji should be changed to generate Kubernetes Jobs or equivalent; it shouldn't
+be a cluster system itself.  This would lead naturally to having more freeform
+CI style workflows that are also scheduled jobs in the cluster.
