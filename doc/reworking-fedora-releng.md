@@ -31,6 +31,15 @@ This is the other "guaranteed conflict" source with PRs on dist-git.  There's
 a lot of implications to this; among other things the commit to dist git wouldn't
 be quite the same as the SRPM.
 
+Builds automatic from git
+---
+
+Builds are always also triggered automatically by commits rather than requiring
+a human to `fedpkg build`. This further reduces the role of Koji; the "built by"
+field in the database no longer makes sense.
+
+However, things are even better with the PR-style model; see below.
+
 Change the build/compose process to do x86_64 only first
 ---
 
