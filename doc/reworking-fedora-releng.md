@@ -31,6 +31,12 @@ This is the other "guaranteed conflict" source with PRs on dist-git.  There's
 a lot of implications to this; among other things the commit to dist git wouldn't
 be quite the same as the SRPM.
 
+Delete %check, drop test-only BuildRequires
+---
+
+Koji is a crummy testing system.  We should hard switch to the [Fedora Standard Test Interface](https://fedoraproject.org/wiki/CI/Standard_Test_Interface).
+See also [installed tests](https://wiki.gnome.org/Initiatives/GnomeGoals/InstalledTests).
+
 Builds automatic from git
 ---
 
