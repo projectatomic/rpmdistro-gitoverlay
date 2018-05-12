@@ -33,6 +33,26 @@ def log(msg):
     sys.stdout.write('\n')
     sys.stdout.flush()
 
+def convert_key_pair_into_commands(key_value_pairs):
+    """
+    This command is mainly used for rpmdbuild-opts, where you have
+    to wrap every options with only one single entry. (for passing into mockbuild)
+    """
+    output_string_list = []
+    # Loop through the key_pair dictionary and extract them as commands
+    for key, value in key_value_pairs.items():
+        if not isinstance(key, str):
+            raise TypeError("To pass options into rpmbuild, key itself has to be a string, Please check your yaml file definition")
+        if not isinstance(value, str):
+            raise TypeError("A non-string value is not allowed, Please check your yaml file definition")
+
+        # Convert the key value pair into '--define key value"' command format
+        # e.g a key, value: foo bar, will be evaluated into '--define "foo bar"'
+        command = '--define "{} {}"'.format(key, value)
+        output_string_list.append(command)
+    output = " ".join(output_string_list)
+    return output
+
 def run_sync(args, **kwargs):
     """Wraps subprocess.check_call(), logging the command line too."""
     if isinstance(args, six.string_types):
