@@ -32,5 +32,16 @@ class TestRpmBuildOptions(unittest.TestCase):
         num_value_pairs ={ 0 : "1"}
         self.assertRaises(TypeError, utils.convert_key_pair_into_commands, num_value_pairs)
 
+    def test_combine_with_other_opts(self):
+        # In the future, there might be case where we want to add more rpmopts
+        # other than define, this unit test is more of proof of expected behavior
+        opts = ["-ts", "--clean", "-bc",'--define "foo bar" --define "baz blar"']
+        output = " ".join(opts)
+        self.assertEqual(output, '-ts --clean -bc --define "foo bar" --define "baz blar"')
+
+        empty_opts = []
+        output = " ".join(empty_opts)
+        self.assertEqual(output, "")
+
 if __name__ == '__main__':
     unittest.main()

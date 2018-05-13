@@ -36,7 +36,7 @@ import re
 
 import mockbuild.util
 
-from . import specfile 
+from . import specfile
 from .utils import fatal, ensuredir, run_sync, rmrf
 
 # all of the variables below are substituted by the build system
@@ -49,7 +49,7 @@ MOCKCONFDIR = os.path.join(SYSCONFDIR, "mock")
 # This variable is global as it's set by `eval`ing the mock config file =(
 config_opts = {}
 
-SRPMBuild = collections.namedtuple('SRPMBuild', ['filename', 'rpmwith', 'rpmwithout'])
+SRPMBuild = collections.namedtuple('SRPMBuild', ['filename', 'rpmwith', 'rpmwithout', 'rpmbuildopts'])
 
 def log(msg):
     print(msg)
@@ -251,6 +251,15 @@ class MockChain(object):
                         '--old-chroot', # Since we'll be running in a container
                         '--resultdir', resdir,
                         '--no-cleanup-after'])
+
+        if pkg.rpmbuildopts:
+            # Note: this implementation will have trouble when there
+            # are extra " characters defined in the build opts because
+            # mock currently won't be able to handle cases like e.g:
+            # rpmbuild-opts='--define ""key value"'
+            buildopts = " ".join(pkg.rpmbuildopts)
+            mockcmd.append('--rpmbuild-opts')
+            mockcmd.append(buildopts)
         for rpmwith in pkg.rpmwith:
             mockcmd.append('--with=' + rpmwith)
         for rpmwithout in pkg.rpmwithout:

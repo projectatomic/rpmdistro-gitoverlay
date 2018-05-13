@@ -1,4 +1,4 @@
-aliases: 
+aliases:
   - name: github
     url: https://github.com/
     # We support "pinned TLS"; save the CA certificate
@@ -13,7 +13,7 @@ aliases:
 distgit:
   prefix: fedorapkgs
   branch: f23
-  
+
 root:
   mock: fedora-23-$arch
 
@@ -29,6 +29,14 @@ components:
   # should they happen to include one.
   - src: github:rpm-software-management/libhif
     spec: internal
+
+  - src: github:openshift/origin
+    spec: internal
+    # We also support --define option, which is going to be fed
+    # into rpmbuild. E.g the example below is equivalent to
+    # --define make_redistributable 0
+    defines:
+        make_redistributable: "0"
 
   - src: github:shurcooL/sanitized_anchor_name
     # Freeze to an arbitrary commit

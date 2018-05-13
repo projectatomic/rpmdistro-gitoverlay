@@ -19,7 +19,7 @@ import os
 import yaml
 import copy
 
-from .utils import fatal
+from .utils import fatal, convert_key_pair_into_commands
 from .task import Task
 from .git import GitRemote, GitMirror
 
@@ -81,7 +81,7 @@ class BaseTaskResolve(Task):
     def _expand_component(self, component):
         for key in component:
             if key not in ['src', 'spec', 'distgit', 'tag', 'branch', 'freeze', 'self-buildrequires',
-                           'rpmwith', 'rpmwithout', 'srpmroot', 'override-version']:
+                           'rpmwith', 'rpmwithout', 'srpmroot', 'override-version', 'defines']:
                 fatal("Unknown key {0} in component: {1}".format(key, component))
         # 'src' and 'distgit' mappings
         src = component.get('src')
@@ -95,7 +95,7 @@ class BaseTaskResolve(Task):
                 pass
             else:
                 raise ValueError('Unknown spec type {0}'.format(spec))
-            
+
         # Canonicalize
         if src is None:
             component['src'] = src = 'distgit'
@@ -122,14 +122,22 @@ class BaseTaskResolve(Task):
         pkgname_default = name
 
         # TODO support pulling VCS from distgit
-        
+
         # tag/branch defaults
         if component.get('tag') is None:
             component['branch'] = component.get('branch', 'master')
 
+        # Handles rpmbuildopts section, currently only support defines,
+        # but it is possible for more coming in the future
+        if component.get('defines') is not None:
+            component['rpmbuildopts'] = []
+            key_value_pairs = component.get('defines')
+            defineopts = convert_key_pair_into_commands(key_value_pairs)
+            component['rpmbuildopts'].append(defineopts)
+
         if spec != 'internal':
             pkgname_default = self._ensure_key_or(distgit, 'name', pkgname_default)
-            distgit['src'] = self._ensure_key_or(distgit, 'src', 
+            distgit['src'] = self._ensure_key_or(distgit, 'src',
                                                  self._distgit_prefix + ':' + distgit['name'])
             distgit['src'] = self._expand_srckey(distgit, 'src')
 
@@ -143,10 +151,10 @@ class BaseTaskResolve(Task):
         # rpmbuild --with and --without
         self._ensure_key_or(component, 'rpmwith', [])
         self._ensure_key_or(component, 'rpmwithout', [])
-
+        self._ensure_key_or(component, 'rpmbuildopts', [])
         self._ensure_key_or(component, 'pkgname', pkgname_default)
 
-    def _load_overlay(self):     
+    def _load_overlay(self):
         self.srcdir = self.workdir + '/src'
         self.mirror = GitMirror(self.srcdir)
         self.lookaside_mirror = self.srcdir + '/lookaside'
@@ -164,14 +172,14 @@ class BaseTaskResolve(Task):
 
     def _expand_overlay(self, fetchall=False, fetch=[],
                         parent_mirror=None,
-                        override_giturl=None,     
+                        override_giturl=None,
                         override_gitbranch=None,
-                        override_gitrepo_from=None,     
-                        override_gitrepo_from_rev=None):     
+                        override_gitrepo_from=None,
+                        override_gitrepo_from_rev=None):
 
         assert override_gitbranch is None or override_gitrepo_from is None
         assert (override_gitrepo_from is None) == (override_gitrepo_from_rev is None)
-        
+
         expanded = copy.deepcopy(self._overlay)
         found_overrides = []
         for component in expanded['components']:
