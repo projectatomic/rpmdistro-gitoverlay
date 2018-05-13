@@ -37,4 +37,4 @@ pyrdgolibpy_PYTHON = $(wildcard rdgo/*.py)
 
 rdgo_privlib_SCRIPTS = rdgo/rpkg-prep-sources
 
-TESTS += pylint.sh flake8.sh
+TESTS += pylint.sh flake8.sh test.sh
