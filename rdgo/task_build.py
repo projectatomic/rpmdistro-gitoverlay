@@ -83,8 +83,11 @@ class TaskBuild(Task):
                 ensure_clean_dir(sublogdir)
                 for subname in os.listdir(buildpath):
                     subpath = buildpath + '/' + subname
+                    destpath = sublogdir + '/' + subname
                     if subname.endswith(('.json', '.log')):
-                        shutil.copy(subpath, sublogdir + '/' + subname)
+                        shutil.copy(subpath, destpath)
+                    elif subname == 'srpm':
+                        shutil.copytree(subpath, destpath)
             if not success:
                 del newcache[distgit_name]
             else:
