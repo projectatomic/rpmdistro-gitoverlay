@@ -107,3 +107,27 @@ is (will become) rather different.
 See also https://fedoraproject.org/wiki/Layered_build_scripts_for_package_maintainers
 for a collection of other projects.
 
+
+### Using this tool as a container
+
+Both `podman` and `docker` are known to work with these instructions.
+
+**Note**: Since this tool uses `mock` any time an image is run as a container it must
+use `--privileged=true`.
+
+#### Building
+
+```
+$ sudo podman build -t rdgo:latest `pwd`/packaging/
+```
+
+#### Using rpmdistro-gitoverlay
+```
+<cd to wherever you have an overlay.yml file you want to use>
+$ sudo podman run --privileged=true -ti --rm -v `pwd`:/rdgo:z localhost/rdgo:latest init
+[..]
+$ sudo podman run --privileged=true -ti --rm -v `pwd`:/rdgo:z localhost/rdgo:latest resolve --fetch-all
+[..]
+$ sudo podman run --privileged=true -ti --rm -v `pwd`:/rdgo:z localhost/rdgo:latest build
+[..]
+```
