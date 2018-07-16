@@ -1,7 +1,7 @@
 FROM registry.fedoraproject.org/fedora:28
 # We install fedpkg specifically because while it's optional, pretty much everyone
 # will want it.
-RUN dnf -y install autoconf automake fedpkg gcc git libtool make python2-pyyaml python3-PyYAML which && \
+RUN dnf -y install autoconf automake dnf-utils fedpkg gcc git libtool make python2-pyyaml python3-PyYAML which && \
     dnf clean all && \
     adduser unprivileged && \
     usermod -a -G mock unprivileged && \
