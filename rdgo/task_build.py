@@ -190,7 +190,10 @@ class TaskBuild(Task):
             newcache[distgit_name] = {'hashv0': component_hash,
                                       'dirname': srcsnap.replace('.srcsnap','')}
             needed_builds.append((component, SRPMBuild(self.snapshotdir + '/' + srcsnap + '/',
-                                                       component['rpmwith'], component['rpmwithout'], component['rpmbuildopts'])))
+                                                       component['rpmwith'],
+                                                       component['rpmwithout'],
+                                                       component['rpmbuildopts'],
+                                                       component.get('build-network', False))))
             need_createrepo = True
 
         # At this point we've consumed any previous partial results, so clean up the dir.

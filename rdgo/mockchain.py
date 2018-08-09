@@ -49,7 +49,7 @@ MOCKCONFDIR = os.path.join(SYSCONFDIR, "mock")
 # This variable is global as it's set by `eval`ing the mock config file =(
 config_opts = {}
 
-SRPMBuild = collections.namedtuple('SRPMBuild', ['filename', 'rpmwith', 'rpmwithout', 'rpmbuildopts'])
+SRPMBuild = collections.namedtuple('SRPMBuild', ['filename', 'rpmwith', 'rpmwithout', 'rpmbuildopts', 'networking'])
 
 def log(msg):
     print(msg)
@@ -264,6 +264,8 @@ class MockChain(object):
             mockcmd.append('--with=' + rpmwith)
         for rpmwithout in pkg.rpmwithout:
             mockcmd.append('--without=' + rpmwithout)
+        if pkg.networking:
+            mockcmd.append('--enable-network')
         mockcmd.append(srpm)
         print('Executing: {0}'.format(subprocess.list2cmdline(mockcmd)))
         cmd = subprocess.Popen(mockcmd)
@@ -281,7 +283,7 @@ class MockChain(object):
         _pkgs = []
         for pkg in pkgs:
             if not isinstance(pkg, SRPMBuild):
-                pkg = SRPMBuild(pkg, [], [])
+                pkg = SRPMBuild(pkg, [], [], False)
             _pkgs.append(pkg)
         pkgs = _pkgs
         for pkg in pkgs:
