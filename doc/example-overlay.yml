@@ -48,6 +48,8 @@ components:
       name: golang-github-shurcooL-sanitized_anchor_name
 
   - src: github:projectatomic/rpm-ostree
+    # Enable networking at build time (breaks reproducibility)
+    build-network: true
     distgit:
       # You can drop patches from dist-git in case they're already
       # merged in upstream git master.
