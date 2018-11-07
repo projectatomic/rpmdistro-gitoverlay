@@ -11,6 +11,9 @@ The output is a single rpm-md/yum repository.
 It is designed to be useful both for developers locally, as well as a
 fully automated service.
 
+However, it is no longer under active development.  See:
+https://github.com/projectatomic/rpmdistro-gitoverlay/issues/49
+
 <hr>
 
 ### Differences from COPR
