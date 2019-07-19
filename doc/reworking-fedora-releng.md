@@ -4,9 +4,37 @@ is just one of [many projects like it](https://fedoraproject.org/wiki/Layered_bu
 But the transition to "manual integration" via Koji/dist-git etc. is painful.
 What if Fedora primary release engineering actually worked this way?
 
-Here's a series of steps we can take.
+Unified source and PR driven workflow
+===
 
----
+Having a separate git repository per package is in hindsight a huge
+mistake.  We carried this over from the CVS days.  Almost no
+other distribution works this way.
+
+First step is to unify all of the dist-gits into a single repository
+like these existing distributions are already doing:
+
+ - https://github.com/NixOS/nixpkgs
+ - https://github.com/openembedded/openembedded-core
+ - https://github.com/clearlinux/clr-bundles
+ - https://github.com/coreos/coreos-overlay/
+
+(OpenEmbedded actually supports a clear series of layers, which may
+ make sense too, but it's probably easier to do a full uni-repo
+ switch first)
+
+Next, the high level end state here is to *remove* `fedpkg`.  No
+one should ever be manually initiating a build.  Generally the workflow
+is *entirely* through pull requests that are CI tested.
+
+In combination, this allows a workflow for e.g. *atomically* changing
+multiple packages at once.  Updating a single package is just a special
+case.  If for example we preserved Bodhi, then a PR that updates
+multiple packages could automatically turn into a Bodhi update that
+contains those same packages.
+
+Individual aspects/steps
+===
 
 Remove the RPM `%changelog` from spec files
 --
@@ -105,21 +133,6 @@ git.
 
 If we *start* from the upstream sources, then we can always generate a spec
 file from it.
-
-PRs-on-distgit
----
-
-The focus of our testing and building should be on the "github style" model
-of submitting a pull request, and having test systems be able to report into
-it.
-
-This would work a lot better if rather than having one git repository per
-package, we had one or a series of layers.  See for example:
-
- - https://github.com/NixOS/nixpkgs
- - https://github.com/openembedded/openembedded-core
- - https://github.com/clearlinux/clr-bundles
- - https://github.com/coreos/coreos-overlay/
 
 Blend upstream testing and downstream testing
 ---
