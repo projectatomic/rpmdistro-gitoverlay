@@ -15,6 +15,7 @@ First step is to unify all of the dist-gits into a single repository
 like these existing distributions are already doing:
 
  - https://github.com/NixOS/nixpkgs
+ - https://git.archlinux.org/svntogit/packages.git/tree/
  - https://github.com/openembedded/openembedded-core
  - https://github.com/clearlinux/clr-bundles
  - https://gitweb.gentoo.org/repo/gentoo.git/tree/
