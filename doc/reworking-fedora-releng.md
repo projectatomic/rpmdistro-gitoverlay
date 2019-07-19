@@ -17,6 +17,7 @@ like these existing distributions are already doing:
  - https://github.com/NixOS/nixpkgs
  - https://github.com/openembedded/openembedded-core
  - https://github.com/clearlinux/clr-bundles
+ - https://gitweb.gentoo.org/repo/gentoo.git/tree/
  - https://github.com/coreos/coreos-overlay/
 
 (OpenEmbedded actually supports a clear series of layers, which may
